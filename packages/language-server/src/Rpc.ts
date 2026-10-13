@@ -28,8 +28,10 @@ import {
   GetDocumentTags,
   LayoutView,
   Locate,
+  RedoChange,
   RegisterProject,
   ReloadProjects,
+  UndoChange,
   ValidateLayout,
 } from './protocol'
 import { ADisposable } from './utils'
@@ -329,6 +331,13 @@ export class Rpc extends ADisposable {
       connection.onRequest(ChangeView.req, async (request) => {
         logger.debug`received request ${'changeView'} of ${request.viewId} from project ${request.projectId}`
         return await likec4Services.ModelChanges.applyChange(request)
+      }),
+      // ----------
+      connection.onRequest(UndoChange.req, async (request) => {
+        return await likec4Services.ModelChanges.undo(request)
+      }),
+      connection.onRequest(RedoChange.req, async (request) => {
+        return await likec4Services.ModelChanges.redo(request)
       }),
       // ----------
       connection.onRequest(FetchTelemetryMetrics.req, async (cancelToken) => {

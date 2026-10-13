@@ -308,6 +308,29 @@ export namespace ChangeView {
 }
 
 /**
+ * Request to undo the latest model change made from the editor.
+ * Only without LSP client (e.g. dev server), editors have their own undo.
+ */
+export namespace UndoChange {
+  export type Params = {
+    projectId?: string | undefined
+  }
+  export type Res = ChangeView.Res
+  export const req = new RequestType<Params, Res, void>('likec4/undo-change')
+  export type Req = typeof req
+}
+
+/**
+ * Request to redo the latest undone model change (see {@link UndoChange})
+ */
+export namespace RedoChange {
+  export type Params = UndoChange.Params
+  export type Res = ChangeView.Res
+  export const req = new RequestType<Params, Res, void>('likec4/redo-change')
+  export type Req = typeof req
+}
+
+/**
  * Request to fetch telemetry metrics
  */
 export namespace FetchTelemetryMetrics {

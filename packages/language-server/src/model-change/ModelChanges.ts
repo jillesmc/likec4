@@ -39,6 +39,12 @@ const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
+type HistoryEntry = {
+  files: Array<{ uri: string; before: string; after: string }>
+}
+
+const HISTORY_LIMIT = 100
+
 const errorsOf = (doc: LangiumDocument | undefined): string[] =>
   (doc?.diagnostics ?? [])
     .filter(d => d.severity === DiagnosticSeverity.Error)
@@ -61,8 +67,12 @@ export class LikeC4ModelChanges {
    * Changes of the same project are applied one at a time, in arrival order.
    */
   public applyChange(changeView: ChangeView.Params): Promise<ChangeView.Res> {
-    const key = changeView.projectId ?? ''
-    const next = (this.queues.get(key) ?? Promise.resolve()).then(() => this.applyChangeNow(changeView))
+    return this.enqueue(changeView.projectId, () => this.applyChangeNow(changeView))
+  }
+
+  protected enqueue<T>(projectId: string | undefined, fn: () => Promise<T>): Promise<T> {
+    const key = projectId ?? ''
+    const next = (this.queues.get(key) ?? Promise.resolve()).then(fn)
     this.queues.set(key, next.catch(() => undefined))
     return next
   }
@@ -262,7 +272,7 @@ export class LikeC4ModelChanges {
           error: 'No changes to apply',
         }
       }
-      return await this.applyPlan(plan)
+      return await this.applyPlan(plan, project.id)
     } catch (err) {
       if (err instanceof ModelChangeError) {
         logger.warn`Rejected ${change.op} in view ${viewId}: [${err.code}] ${err.message}`
@@ -284,7 +294,7 @@ export class LikeC4ModelChanges {
   /**
    * Applies the plan, and reverts it if any touched document gained errors
    */
-  protected async applyPlan(plan: ModelChangePlan): Promise<ChangeView.Res> {
+  protected async applyPlan(plan: ModelChangePlan, projectId: ProjectId): Promise<ChangeView.Res> {
     const documents = this.services.shared.workspace.LangiumDocuments
     const before = new Map<string, { text: string; errors: string[] }>()
     for (const uri of plan.edits.keys()) {
@@ -312,9 +322,104 @@ export class LikeC4ModelChanges {
       }
     }
 
+    this.recordHistory(projectId, before)
+
     return {
       success: true,
       location: plan.modifiedRange,
+    }
+  }
+
+  /**
+   * Undo history of model changes per project.
+   * Only without LSP connection (dev server), editors (VSCode) have their own undo.
+   */
+  private history = new Map<ProjectId, { undo: HistoryEntry[]; redo: HistoryEntry[] }>()
+
+  protected historyOf(projectId: ProjectId) {
+    let history = this.history.get(projectId)
+    if (!history) {
+      history = { undo: [], redo: [] }
+      this.history.set(projectId, history)
+    }
+    return history
+  }
+
+  protected recordHistory(projectId: ProjectId, before: Map<string, { text: string }>): void {
+    if (this.services.shared.lsp.Connection) {
+      return
+    }
+    const documents = this.services.shared.workspace.LangiumDocuments
+    const files = [...before].map(([uri, { text }]) => ({
+      uri,
+      before: text,
+      after: documents.getDocument(URI.parse(uri))?.textDocument.getText() ?? text,
+    }))
+    const history = this.historyOf(projectId)
+    history.undo.push({ files })
+    if (history.undo.length > HISTORY_LIMIT) {
+      history.undo.shift()
+    }
+    history.redo = []
+  }
+
+  /**
+   * Reverts the latest model change of the project (dev server only)
+   */
+  public undo(params: { projectId?: string | undefined }): Promise<ChangeView.Res> {
+    return this.enqueue(params.projectId, () => this.restore(params.projectId, 'undo'))
+  }
+
+  /**
+   * Re-applies the latest reverted model change of the project (dev server only)
+   */
+  public redo(params: { projectId?: string | undefined }): Promise<ChangeView.Res> {
+    return this.enqueue(params.projectId, () => this.restore(params.projectId, 'redo'))
+  }
+
+  protected async restore(projectId: string | undefined, direction: 'undo' | 'redo'): Promise<ChangeView.Res> {
+    if (this.services.shared.lsp.Connection) {
+      return {
+        success: false,
+        code: 'unsupported-in-view',
+        error: 'Use the editor undo',
+      }
+    }
+    const project = this.services.shared.workspace.ProjectsManager.ensureProject(projectId as ProjectId)
+    const history = this.historyOf(project.id)
+    const [from, to] = direction === 'undo' ? [history.undo, history.redo] : [history.redo, history.undo]
+    const entry = from.pop()
+    if (!entry) {
+      return {
+        success: false,
+        code: 'not-found',
+        error: direction === 'undo' ? 'Nothing to undo' : 'Nothing to redo',
+      }
+    }
+    const documents = this.services.shared.workspace.LangiumDocuments
+    const texts = new Map<string, { text: string }>()
+    for (const file of entry.files) {
+      const current = documents.getDocument(URI.parse(file.uri))?.textDocument.getText()
+      const expected = direction === 'undo' ? file.after : file.before
+      if (current !== expected) {
+        history.undo = []
+        history.redo = []
+        return {
+          success: false,
+          code: 'stale-undo',
+          error: `File changed since this edit; ${direction} unavailable`,
+        }
+      }
+      texts.set(file.uri, { text: direction === 'undo' ? file.before : file.after })
+    }
+    await this.revert(texts)
+    to.push(entry)
+    const first = entry.files[0]
+    return {
+      success: true,
+      location: first
+        ? { uri: first.uri, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } }
+        : null,
     }
   }
 
