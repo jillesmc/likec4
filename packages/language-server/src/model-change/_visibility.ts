@@ -1,4 +1,5 @@
 import {
+  type DeploymentElement,
   type Element,
   type ElementKind,
   type Fqn,
@@ -89,4 +90,35 @@ export function isElementVisible(
     return true
   }
   return result.view.nodes.some(node => node.id === fqn)
+}
+
+/**
+ * Predicts whether a new deployment node or instance would be visible in the deployment view
+ * (see {@link isRelationVisible})
+ */
+export function isDeploymentElementVisible(
+  model: LikeC4Model<UnknownParsed>,
+  viewId: ViewId,
+  element: DeploymentElement,
+): boolean {
+  const data = model.$data
+  const viewSource = data.views[viewId]
+  if (!viewSource) {
+    return true
+  }
+  const patched = LikeC4Model.create({
+    ...data,
+    deployments: {
+      ...data.deployments,
+      elements: {
+        ...data.deployments.elements,
+        [element.id]: element,
+      },
+    },
+  })
+  const result = computeView(viewSource, patched)
+  if (!result.isSuccess) {
+    return true
+  }
+  return result.view.nodes.some(node => node.id === element.id)
 }

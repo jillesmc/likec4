@@ -8,6 +8,7 @@ import type { LikeC4ModelLocator, ViewLocateResult } from '../model'
 import type { LikeC4Services } from '../module'
 import type { ChangeView } from '../protocol'
 import type { ModelChangePlan } from './_anchors'
+import { addDeploymentNode, addInstance } from './addDeployment'
 import { addElement } from './addElement'
 import { addRelation } from './addRelation'
 import { changeElementStyle } from './changeElementStyle'
@@ -29,6 +30,8 @@ type ModelChangeOp =
   | ViewChange.ChangeTitle
   | ViewChange.ExcludeFromView
   | ViewChange.DeleteFromModel
+  | ViewChange.AddDeploymentNode
+  | ViewChange.AddInstance
 
 const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   change.op === 'add-relation'
@@ -36,6 +39,8 @@ const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   || change.op === 'change-title'
   || change.op === 'exclude-from-view'
   || change.op === 'delete-from-model'
+  || change.op === 'add-deployment-node'
+  || change.op === 'add-instance'
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
@@ -261,6 +266,14 @@ export class LikeC4ModelChanges {
         }
         case 'delete-from-model': {
           plan = deleteFromModel(this.services, { projectId: project.id, model, change })
+          break
+        }
+        case 'add-deployment-node': {
+          plan = addDeploymentNode(this.services, { projectId: project.id, lookup, model, change })
+          break
+        }
+        case 'add-instance': {
+          plan = addInstance(this.services, { projectId: project.id, lookup, model, change })
           break
         }
         default:
