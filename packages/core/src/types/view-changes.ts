@@ -113,6 +113,16 @@ export namespace ViewChange {
     name?: string
   }
 
+  /**
+   * Add a step `source -> target` at the end of the top-level steps of a dynamic view
+   */
+  export interface AddDynamicStep {
+    op: 'add-dynamic-step'
+    source: scalar.Fqn
+    target: scalar.Fqn
+    title?: string
+  }
+
   export type ExcludeTarget =
     | { node: scalar.Fqn | scalar.DeploymentFqn }
     | { edge: { source: scalar.Fqn | scalar.DeploymentFqn; target: scalar.Fqn | scalar.DeploymentFqn } }
@@ -151,6 +161,7 @@ export type ViewChange =
   | ViewChange.DeleteFromModel
   | ViewChange.AddDeploymentNode
   | ViewChange.AddInstance
+  | ViewChange.AddDynamicStep
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
