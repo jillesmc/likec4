@@ -8,6 +8,7 @@ import type { LikeC4ModelLocator, ViewLocateResult } from '../model'
 import type { LikeC4Services } from '../module'
 import type { ChangeView } from '../protocol'
 import type { ModelChangePlan } from './_anchors'
+import { addElement } from './addElement'
 import { addRelation } from './addRelation'
 import { changeElementStyle } from './changeElementStyle'
 import { changeViewLayout } from './changeViewLayout'
@@ -19,9 +20,10 @@ const logger = mainLogger.getChild('model-changes')
 /**
  * Changes that modify the model (not only the view)
  */
-type ModelChangeOp = ViewChange.AddRelation
+type ModelChangeOp = ViewChange.AddRelation | ViewChange.AddElement
 
-const isModelChangeOp = (change: ViewChange): change is ModelChangeOp => change.op === 'add-relation'
+const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
+  change.op === 'add-relation' || change.op === 'add-element'
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
@@ -223,8 +225,12 @@ export class LikeC4ModelChanges {
           plan = addRelation(this.services, { projectId: project.id, lookup, model, change })
           break
         }
+        case 'add-element': {
+          plan = addElement(this.services, { projectId: project.id, lookup, model, change })
+          break
+        }
         default:
-          nonexhaustive(change.op)
+          nonexhaustive(change)
       }
       return await this.applyPlan(plan)
     } catch (err) {

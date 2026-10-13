@@ -1,4 +1,6 @@
 import {
+  type Element,
+  type ElementKind,
   type Fqn,
   type FqnRef,
   type Relationship,
@@ -52,4 +54,39 @@ export function isRelationVisible(
     return true
   }
   return result.view.edges.some(edge => edge.relations.includes(PREDICTED_RELATION))
+}
+
+/**
+ * Predicts whether a new element would be visible in the view (see {@link isRelationVisible})
+ */
+export function isElementVisible(
+  model: LikeC4Model<UnknownParsed>,
+  viewId: ViewId,
+  fqn: Fqn,
+  kind: ElementKind,
+  title: string,
+): boolean {
+  const data = model.$data
+  const viewSource = data.views[viewId]
+  if (!viewSource) {
+    return true
+  }
+  const element: Element = {
+    id: fqn,
+    kind,
+    title,
+    style: {},
+  }
+  const patched = LikeC4Model.create({
+    ...data,
+    elements: {
+      ...data.elements,
+      [fqn]: element,
+    },
+  })
+  const result = computeView(viewSource, patched)
+  if (!result.isSuccess) {
+    return true
+  }
+  return result.view.nodes.some(node => node.id === fqn)
 }
