@@ -75,6 +75,15 @@ export namespace ViewChange {
      */
     name?: string
   }
+
+  /**
+   * Change the title of an element, deployment node or deployed instance (in the model, not only in the view)
+   */
+  export interface ChangeTitle {
+    op: 'change-title'
+    target: scalar.Fqn | scalar.DeploymentFqn
+    title: string
+  }
 }
 
 export type ViewChange =
@@ -85,6 +94,7 @@ export type ViewChange =
   | ViewChange.ChangeProperty
   | ViewChange.AddRelation
   | ViewChange.AddElement
+  | ViewChange.ChangeTitle
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
