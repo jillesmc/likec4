@@ -1,4 +1,4 @@
-import { type Fqn, type ProjectId, splitGlobalFqn } from '@likec4/core'
+import { type ProjectId, Fqn, splitGlobalFqn } from '@likec4/core'
 import { type ParsedLikeC4LangiumDocument, ast, isParsedLikeC4LangiumDocument } from '../ast'
 import type { LikeC4Services } from '../module'
 
@@ -32,8 +32,8 @@ export function findElementDefinition(
  * Text to reference the element from DSL.
  * Imported elements (`@project.fqn`) are referenced by their fqn within the project.
  */
-export function fqnRefText(fqn: Fqn): string {
-  return splitGlobalFqn(fqn)[1]
+export function fqnRefText(fqn: string): string {
+  return splitGlobalFqn(Fqn(fqn))[1]
 }
 
 /**

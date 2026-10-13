@@ -1,0 +1,30 @@
+import { type ViewChange, _type, nonNullable } from '@likec4/core'
+import type { ViewLocateResult } from '../model'
+import { type ModelChangePlan, addToPlan, appendToBlock } from './_anchors'
+import { fqnRefText } from './_lookup'
+import { ModelChangeError } from './ModelChangeError'
+
+const ruleOf = (target: ViewChange.ExcludeTarget): string =>
+  'node' in target
+    ? `exclude ${fqnRefText(target.node)}`
+    : `exclude ${fqnRefText(target.edge.source)} -> ${fqnRefText(target.edge.target)}`
+
+/**
+ * Plans `exclude ...` rules at the end of the view body, one per target.
+ * Dynamic views have no `exclude` rule.
+ */
+export function excludeFromView(
+  { lookup, change }: { lookup: ViewLocateResult; change: ViewChange.ExcludeFromView },
+): ModelChangePlan {
+  if (lookup.view[_type] === 'dynamic') {
+    throw new ModelChangeError('unsupported-in-view', 'exclude-from-view is not supported in dynamic views')
+  }
+  const { doc, viewAst } = lookup
+  const viewCst = nonNullable(viewAst.$cstNode, 'view has no cst node')
+  const bodyCst = nonNullable(viewAst.body?.$cstNode, `view ${lookup.view.id} has no body`)
+  const anchored = appendToBlock(doc.textDocument, viewCst, bodyCst, change.targets.map(ruleOf))
+  const uri = doc.textDocument.uri
+  const plan: ModelChangePlan = { edits: new Map(), modifiedRange: { uri, range: anchored.range } }
+  addToPlan(plan, uri, anchored)
+  return plan
+}

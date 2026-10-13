@@ -150,3 +150,28 @@ export function appendTopLevelBlock(doc: TextDocument, keyword: string, lines: s
   res.range.end.line += shift
   return res
 }
+
+/**
+ * Removes the node. When it occupies whole lines, the lines are removed,
+ * and a blank line left between two blank lines is removed too.
+ */
+export function removeNode(doc: TextDocument, node: CstNode): AnchoredEdit {
+  const { start, end } = node.range
+  const lineText = (line: number) =>
+    doc.getText({ start: { line, character: 0 }, end: { line, character: Number.MAX_SAFE_INTEGER } })
+  const before = lineText(start.line).slice(0, start.character)
+  const after = lineText(end.line).slice(end.character)
+  if (before.trim() !== '' || after.trim() !== '') {
+    return { edit: { range: node.range, newText: '' }, range: { start, end: start } }
+  }
+  let lastLine = end.line
+  const isBlank = (line: number) => line >= 0 && line < doc.lineCount && lineText(line).trim() === ''
+  if (isBlank(start.line - 1) && isBlank(end.line + 1)) {
+    lastLine++
+  }
+  const from = { line: start.line, character: 0 }
+  const to = lastLine + 1 < doc.lineCount
+    ? { line: lastLine + 1, character: 0 }
+    : { line: lastLine, character: lineText(lastLine).length }
+  return { edit: { range: { start: from, end: to }, newText: '' }, range: { start: from, end: from } }
+}
