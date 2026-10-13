@@ -7,7 +7,7 @@ import { isCI } from 'std-env'
 
 export default defineConfig({
   testDir: 'tests',
-  testMatch: ['**/static-build-relationship-popover.spec.ts'],
+  testMatch: ['**/static-build-relationship-popover.spec.ts', '**/static-build-readonly-editing.spec.ts'],
   forbidOnly: isCI,
   timeout: 20 * 1000,
   retries: isCI ? 1 : 0,

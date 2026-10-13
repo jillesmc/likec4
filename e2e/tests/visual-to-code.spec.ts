@@ -97,3 +97,58 @@ test('US-003: double-clicking a node edits its title in the sources', async ({ p
   await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`  cloud = system 'Cloud Platform'`)
   await expect(cloud).toContainText('Cloud Platform', { timeout: 10_000 })
 })
+
+test('E2E-003: Del excludes the selected element from the view', async ({ page }) => {
+  await page.goto('/view/index/')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(cloud).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await cloud.click()
+  await page.keyboard.press('Delete')
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`    include *\n    exclude cloud\n`)
+  await expect(cloud).toHaveCount(0, { timeout: 10_000 })
+  // The model is not changed
+  expect(await readServed()).toContain(`  cloud = system 'Cloud System'`)
+})
+
+test('US-005: deleting an unreferenced element from the model removes its definition', async ({ page }) => {
+  await page.goto('/view/index/')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(cloud).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await cloud.click()
+  await page.getByRole('button', { name: 'Delete from model' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Delete "Cloud System" from model?' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Delete' }).click()
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).not.toContain(`cloud = system`)
+  await expect(cloud).toHaveCount(0, { timeout: 10_000 })
+})
+
+test('US-004 AC-4: excluding in a view with manual layout updates the snapshot without drift', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  // Move a node to save a manual layout snapshot
+  const box = (await customer.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect.poll(() => hasManualLayout('index'), { timeout: 10_000 }).toBe(true)
+
+  await cloud.click()
+  await page.keyboard.press('Delete')
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`exclude cloud`)
+  await expect(cloud).toHaveCount(0, { timeout: 10_000 })
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).not.toContain(`id: 'cloud'`)
+  await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+})

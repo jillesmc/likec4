@@ -23,6 +23,7 @@ tests/*.spec.ts
 !tests/webcomponent-overlay.spec.ts
 !tests/diagram-a11y.spec.ts
 !tests/visual-to-code.spec.ts
+!tests/static-build-readonly-editing.spec.ts
 
 pnpm-lock.yaml
 package-lock.json
