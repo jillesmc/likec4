@@ -11,6 +11,7 @@ import type {
   ProjectId,
   RelationId,
   ViewChange,
+  ViewChangeErrorCode,
   ViewId,
 } from '@likec4/core'
 import type { AILayoutHints } from '@likec4/layouts/ai'
@@ -296,6 +297,10 @@ export namespace ChangeView {
     success: false
     location?: Location | null
     error: string
+    /**
+     * Error code, present when the change was rejected deterministically
+     */
+    code?: ViewChangeErrorCode | undefined
   }
 
   export const req = new RequestType<Params, Res, void>('likec4/change-view')
