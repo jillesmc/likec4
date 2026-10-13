@@ -59,6 +59,9 @@ export function ViewEditor() {
           }
           return likec4rpc.updateView(event)
         },
+        // Canvas undo / redo of model changes (dev server keeps the history)
+        undoModelChange: () => likec4rpc.undoChange({ projectId: project.id }),
+        redoModelChange: () => likec4rpc.redoChange({ projectId: project.id }),
         ...(isAIAvailable && {
           applySemanticLayout: (viewId) => {
             return likec4rpc.applySemanticLayout({
