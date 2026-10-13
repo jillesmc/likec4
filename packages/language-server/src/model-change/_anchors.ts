@@ -175,3 +175,30 @@ export function removeNode(doc: TextDocument, node: CstNode): AnchoredEdit {
     : { line: lastLine, character: lineText(lastLine).length }
   return { edit: { range: { start: from, end: to }, newText: '' }, range: { start: from, end: from } }
 }
+
+/**
+ * Inserts lines right after the node, on new lines with the indentation of the node
+ */
+export function insertAfterNode(doc: TextDocument, node: CstNode, lines: string[]): AnchoredEdit {
+  const indent = lineIndent(doc, node.range.start.line)
+  return insertion(doc, node.range.end, eolOf(doc), lines, indent, '')
+}
+
+/**
+ * Inserts lines before the line of the node, with the indentation of the node
+ */
+export function insertBeforeNode(doc: TextDocument, node: CstNode, lines: string[]): AnchoredEdit {
+  const eol = eolOf(doc)
+  const indent = lineIndent(doc, node.range.start.line)
+  const position = { line: node.range.start.line, character: 0 }
+  return {
+    edit: {
+      range: { start: position, end: position },
+      newText: lines.map(l => indent + l + eol).join(''),
+    },
+    range: {
+      start: { line: position.line, character: indent.length },
+      end: { line: position.line + lines.length - 1, character: indent.length + (last(lines)?.length ?? 0) },
+    },
+  }
+}
