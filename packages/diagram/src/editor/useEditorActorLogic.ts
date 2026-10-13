@@ -4,7 +4,7 @@ import { fromPromise } from 'xstate'
 import { useCallbackRef } from '../hooks'
 import { type EditorActorLogic, editorActorLogic } from './actor/machine'
 import type { EditorCalls } from './actor/setup'
-import { applyChangesToManualLayout } from './applyChangesToManualLayout'
+import { applyChangesToManualLayout, placeNewNode } from './applyChangesToManualLayout'
 import { shouldWaitForViewSync } from './LikeC4EditorCallbacks'
 import { useOptionalLikeC4Editor } from './LikeC4EditorProvider'
 
@@ -23,14 +23,17 @@ export function useEditorActorLogic(): EditorActorLogic & {
   const isStub = isNullish(port)
 
   const applyLatest: EditorCalls.ApplyLatestToManual = useCallbackRef(
-    async ({ input: { viewId, current } }) => {
+    async ({ input: { viewId, current, placement } }) => {
       if (!port) {
         console.error('No editor port available for applying latest to manual layout')
         throw new Error('No editor port')
       }
       const manual = await promisify(() => current ?? port.fetchView(viewId, 'manual'))
       const latest = await promisify(() => port.fetchView(viewId, 'auto'))
-      const updated = applyChangesToManualLayout(manual, latest)
+      let updated = applyChangesToManualLayout(manual, latest)
+      if (placement) {
+        updated = placeNewNode(manual, updated, placement)
+      }
       return {
         updated,
       }

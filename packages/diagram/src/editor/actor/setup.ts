@@ -1,3 +1,4 @@
+import type { XYPoint } from '@likec4/core/geometry'
 import type * as t from '@likec4/core/types'
 import {
   type ActorRefFromLogic,
@@ -25,7 +26,14 @@ export namespace EditorCalls {
     params: { input: ApplyLatestToManual.Input },
   ) => Promise<ApplyLatestToManual.Output>
   export namespace ApplyLatestToManual {
-    export type Input = { viewId: t.ViewId; current: t.LayoutedView | undefined }
+    export type Input = {
+      viewId: t.ViewId
+      current: t.LayoutedView | undefined
+      /**
+       * Center of the element created on the canvas, if any
+       */
+      placement?: XYPoint | null | undefined
+    }
     export type Output = { updated: t.LayoutedView }
   }
 

@@ -1,8 +1,8 @@
 import type * as t from '@likec4/core/types'
 import { indexBy } from 'remeda'
-import { describe, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { type Patches, prepareFixtures } from './__tests__/fixture'
-import { applyChangesToManualLayout } from './applyChangesToManualLayout'
+import { applyChangesToManualLayout, placeNewNode } from './applyChangesToManualLayout'
 
 export function testData<const Nodes, Edges>(patches?: Patches<Nodes, Edges>) {
   const {
@@ -339,5 +339,30 @@ describe('applyChangesToManualLayout', () => {
     // Should not include edges connecting to existing nodes
     expect(result.edges).not.toContain(latestEdges['new.node:customer'])
     expect(result.edges).not.toContain(latestEdges['customer:new.node'])
+  })
+})
+
+describe('placeNewNode', () => {
+  const node = (id: string, x: number, y: number) => ({
+    id,
+    x,
+    y,
+    width: 100,
+    height: 60,
+    children: [],
+  })
+  const view = (nodes: ReturnType<typeof node>[]) => ({ nodes })
+
+  it('UT-062: centers the new leaf node at the drop position', () => {
+    const manual = view([node('a', 0, 0)])
+    const updated = view([node('a', 0, 0), node('b', 500, 500)])
+    const placed = placeNewNode(manual, updated, { x: 300, y: 200 })
+    expect(placed.nodes.find(n => n.id === 'b')).toMatchObject({ x: 250, y: 170 })
+    expect(placed.nodes.find(n => n.id === 'a')).toMatchObject({ x: 0, y: 0 })
+  })
+
+  it('returns the view unchanged without new nodes', () => {
+    const manual = view([node('a', 0, 0)])
+    expect(placeNewNode(manual, manual, { x: 1, y: 1 })).toBe(manual)
   })
 })

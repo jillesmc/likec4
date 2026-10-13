@@ -195,6 +195,7 @@ const process = machine.createStateConfig({
       entry: assign(({ system }) => ({
         processing: makeSnapshot(system).change,
       })),
+      exit: assign({ pendingPlacement: null }),
       states: {
         // Fetch latest and manual layouts
         // Apply changes, send update to diagram
@@ -207,6 +208,7 @@ const process = machine.createStateConfig({
               return ({
                 current: current.layout,
                 viewId: context.viewId,
+                placement: context.pendingPlacement,
               })
             },
             onDone: {
@@ -306,7 +308,7 @@ const process = machine.createStateConfig({
             if (failed.length > 0) {
               const failedChanges = failed.map(f => f.change)
               enqueue.assign({
-                ghosts: context.ghosts.filter(ghost => !failedChanges.includes(ghost)),
+                ghosts: context.ghosts.filter(ghost => !failedChanges.includes(ghost.change)),
                 lastError: failed.map(f => f.error).join('\n'),
               })
             }

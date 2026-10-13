@@ -6,7 +6,7 @@ import type { DiagramContext } from '../../likec4diagram/state/types'
 import { typedSystem } from '../../likec4diagram/state/utils'
 import type { Types } from '../../likec4diagram/types'
 import { machine } from './setup'
-import { type Snapshot, type SyncOp, isGhostChange } from './types'
+import { type EditorActorContext, type Ghost, type Snapshot, type SyncOp, isGhostChange } from './types'
 
 /**
  * Actually this is DiagramActorRef
@@ -280,20 +280,30 @@ export const addGhost = () =>
       return {}
     }
     return {
-      ghosts: [...ghosts, event.change],
+      ghosts: [...ghosts, { change: event.change, position: event.position ?? null }],
     }
   })
 
+const isPending = (ghost: Ghost, { syncQueue, processing }: Pick<EditorActorContext, 'syncQueue' | 'processing'>) =>
+  ghost.change === processing || syncQueue.includes(ghost.change)
+
 /**
- * Keep only ghosts of changes that are still waiting to be executed
+ * Keep only ghosts of changes that are still waiting to be executed.
+ * If an element was created on a view with manual layout, place it where it was dropped.
  */
 export const settleGhosts = () =>
-  machine.assign(({ context: { ghosts, syncQueue, processing } }) => {
-    if (ghosts.length === 0) {
-      return {}
+  machine.enqueueActions(({ context, system, enqueue }) => {
+    if (context.ghosts.length === 0) {
+      return
     }
-    return {
-      ghosts: ghosts.filter(ghost => ghost === processing || syncQueue.includes(ghost)),
+    const settled = context.ghosts.filter(ghost => !isPending(ghost, context))
+    enqueue.assign({
+      ghosts: context.ghosts.filter(ghost => isPending(ghost, context)),
+    })
+    const placement = settled.findLast(g => g.change.op === 'add-element' && g.position)?.position
+    if (placement && getDiagramContext(system).view._layout === 'manual') {
+      enqueue.assign({ pendingPlacement: placement })
+      enqueue.raise({ type: 'change.latest-to-manual' })
     }
   })
 

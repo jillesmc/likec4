@@ -5,22 +5,23 @@
 //
 // Portions of this file have been modified by NVIDIA CORPORATION & AFFILIATES.
 
-import { type EdgeId, type NodeId, nonNullable } from '@likec4/core'
+import { type EdgeId, type ElementKind, type NodeId, nonNullable } from '@likec4/core'
 import { cx } from '@likec4/styles/css'
 import { useDebouncedCallback, useTimeout } from '@mantine/hooks'
 import { useCustomCompareMemo } from '@react-hookz/web'
-import { Controls as XYFlowControls } from '@xyflow/react'
+import { Controls as XYFlowControls, Panel } from '@xyflow/react'
 import type { OnMove, OnMoveEnd, Viewport } from '@xyflow/system'
 import { shallowEqual } from 'fast-equals'
 import type { MouseEvent as ReactMouseEvent, PropsWithChildren } from 'react'
 import type { JSX } from 'react/jsx-runtime'
-import { isEmpty } from 'remeda'
+import { isEmpty, keys } from 'remeda'
 import type { Simplify } from 'type-fest'
 import { BaseXYFlow } from '../base/BaseXYFlow'
 import { IS_SERVER } from '../base/const'
 import { useDiagramEventHandlers } from '../context'
+import { useOptionalLikeC4Model } from '../context/LikeC4ModelContext'
 import { useRootContainer } from '../context/RootContainerContext'
-import { GhostEdges, innermostNode, resolveConnection } from '../editor-ui'
+import { ElementPalette, Ghosts, innermostNode, resolveConnection, useElementDrop } from '../editor-ui'
 import {
   selectDiagramSnapshot,
   useCallbackRef,
@@ -171,6 +172,7 @@ export function LikeC4DiagramXYFlow({
   } = reactFlowProps
   const diagram = useDiagram()
   const xyflow = useXYFlow()
+  const likec4model = useOptionalLikeC4Model()
   let {
     enableReadOnly,
     isGraphVariant,
@@ -185,6 +187,14 @@ export function LikeC4DiagramXYFlow({
     ...props
   } = useDiagramSelector(selectXYProps)
   const isEditorBusy = useEditorActorStateHasTag('busy')
+  // Element kinds for the palette, available only with the model
+  // (keys of specification.elements are element kinds, Object.keys loses the tag)
+  const elementKinds = likec4model
+    ? keys(likec4model.specification.elements).map(kind => kind as ElementKind)
+    : null
+  const elementDrop = useElementDrop(elementKinds ?? [], (change, position) => {
+    diagram.editorActor().send({ type: 'change.view', change, position })
+  })
   nodesDraggable = resolveInteractionEnabled(nodesDraggable, nodesDraggableOverride, isEditorBusy)
   nodesSelectable = resolveInteractionEnabled(nodesSelectable, nodesSelectableOverride, isEditorBusy)
 
@@ -300,6 +310,10 @@ export function LikeC4DiagramXYFlow({
         })
       })}
       nodesConnectable={nodesConnectable}
+      {...nodesConnectable && elementKinds && {
+        onDragOver: elementDrop.onDragOver,
+        onDrop: elementDrop.onDrop,
+      }}
       onConnectEnd={useCallbackRef((event, connection) => {
         if (!nodesConnectable || !connection.fromNode) {
           return
@@ -385,7 +399,13 @@ export function LikeC4DiagramXYFlow({
           maxZoom={props.maxZoom}
         />
       )}
-      {nodesConnectable && <GhostEdges />}
+      {nodesConnectable && <Ghosts />}
+      {nodesConnectable && elementKinds && (
+        <Panel position="center-right">
+          <ElementPalette kinds={elementKinds} />
+        </Panel>
+      )}
+      {nodesConnectable && elementDrop.popover}
       {children}
     </BaseXYFlow>
   )

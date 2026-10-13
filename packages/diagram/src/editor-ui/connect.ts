@@ -9,7 +9,7 @@ export interface ConnectableNode {
   measured?: { width?: number | undefined; height?: number | undefined } | undefined
 }
 
-function modelFqnOf(node: ConnectableNode | null | undefined): Fqn | null {
+export function modelFqnOf(node: ConnectableNode | null | undefined): Fqn | null {
   if (!node || (node.type !== 'element' && node.type !== 'compound-element')) {
     return null
   }

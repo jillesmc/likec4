@@ -1,10 +1,12 @@
+import type { XYPoint } from '@likec4/core/geometry'
 import type * as t from '@likec4/core/types'
 import type { Types } from '../../likec4diagram/types'
 import type { HotKeyEvent } from './hotkey'
 
 export type EditorActorEvent =
   // Add change to queue
-  | { type: 'change.view'; change: t.ViewChange }
+  // `position` - where the gesture happened (flow coordinates), used to render ghosts
+  | { type: 'change.view'; change: t.ViewChange; position?: XYPoint | undefined }
   | { type: 'change.semantic-layout' }
   | { type: 'change.latest-to-manual' }
   | { type: 'change.sync-snapshot' }
@@ -48,9 +50,18 @@ export const isViewChange = (change: SyncOp | null): change is t.ViewChange =>
 /**
  * Changes rendered as pending items (ghosts) until the view is synced
  */
-export type GhostChange = t.ViewChange.AddRelation
+export type GhostChange = t.ViewChange.AddRelation | t.ViewChange.AddElement
 
-export const isGhostChange = (change: t.ViewChange): change is GhostChange => change.op === 'add-relation'
+export const isGhostChange = (change: t.ViewChange): change is GhostChange =>
+  change.op === 'add-relation' || change.op === 'add-element'
+
+export interface Ghost {
+  change: GhostChange
+  /**
+   * Where the item was created (flow coordinates), if known
+   */
+  position: XYPoint | null
+}
 
 export interface EditorActorContext {
   viewId: t.ViewId
@@ -78,7 +89,12 @@ export interface EditorActorContext {
   /**
    * Changes not yet visible in the view (rendered as ghosts)
    */
-  ghosts: GhostChange[]
+  ghosts: Ghost[]
+
+  /**
+   * Position for the element created on the canvas, applied to the manual layout once the view is synced
+   */
+  pendingPlacement: XYPoint | null
 
   /**
    * Error of the last rejected change, shown to the user until dismissed

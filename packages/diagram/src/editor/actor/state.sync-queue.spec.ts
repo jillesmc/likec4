@@ -125,7 +125,7 @@ describe('editor sync queue', () => {
       const change = relation('a', 'b')
 
       actor.send({ type: 'change.view', change })
-      expect(actor.getSnapshot().context.ghosts).toEqual([change])
+      expect(actor.getSnapshot().context.ghosts).toEqual([{ change, position: null }])
 
       await waitFor(
         actor,
@@ -133,7 +133,7 @@ describe('editor sync queue', () => {
           (snapshot.value as unknown as { syncQueue: { process: string } }).syncQueue.process === 'waitViewSynced',
         { timeout: 500 },
       )
-      expect(actor.getSnapshot().context.ghosts).toEqual([change])
+      expect(actor.getSnapshot().context.ghosts).toEqual([{ change, position: null }])
 
       actor.send({ type: 'view.synched' })
       await waitFor(actor, snapshot => !snapshot.hasTag('busy'), { timeout: 500 })
