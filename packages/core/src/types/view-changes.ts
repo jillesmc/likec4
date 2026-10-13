@@ -49,6 +49,17 @@ export namespace ViewChange {
      */
     tags?: scalar.Tag[]
   }
+
+  /**
+   * Add a model relation `source -> target`.
+   * Written inside the source element's definition block.
+   */
+  export interface AddRelation {
+    op: 'add-relation'
+    source: scalar.Fqn
+    target: scalar.Fqn
+    title?: string
+  }
 }
 
 export type ViewChange =
@@ -57,3 +68,19 @@ export type ViewChange =
   | ViewChange.ResetManualLayout
   | ViewChange.ChangeAutoLayout
   | ViewChange.ChangeProperty
+  | ViewChange.AddRelation
+
+/**
+ * Deterministic error codes returned when a {@link ViewChange} is rejected
+ */
+export type ViewChangeErrorCode =
+  | 'not-found'
+  | 'invalid-name'
+  | 'name-collision'
+  | 'unknown-kind'
+  | 'read-only-target'
+  | 'has-references'
+  | 'unsupported-in-view'
+  | 'invalid-result'
+  | 'apply-failed'
+  | 'stale-undo'
