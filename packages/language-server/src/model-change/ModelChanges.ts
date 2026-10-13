@@ -11,6 +11,7 @@ import type { ModelChangePlan } from './_anchors'
 import { addElement } from './addElement'
 import { addRelation } from './addRelation'
 import { changeElementStyle } from './changeElementStyle'
+import { changeTitle } from './changeTitle'
 import { changeViewLayout } from './changeViewLayout'
 import { ModelChangeError } from './ModelChangeError'
 import { changePropertyHandler, preparePayload } from './viewChange'
@@ -20,10 +21,10 @@ const logger = mainLogger.getChild('model-changes')
 /**
  * Changes that modify the model (not only the view)
  */
-type ModelChangeOp = ViewChange.AddRelation | ViewChange.AddElement
+type ModelChangeOp = ViewChange.AddRelation | ViewChange.AddElement | ViewChange.ChangeTitle
 
 const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
-  change.op === 'add-relation' || change.op === 'add-element'
+  change.op === 'add-relation' || change.op === 'add-element' || change.op === 'change-title'
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
@@ -229,8 +230,18 @@ export class LikeC4ModelChanges {
           plan = addElement(this.services, { projectId: project.id, lookup, model, change })
           break
         }
+        case 'change-title': {
+          plan = changeTitle(this.services, { projectId: project.id, model, change })
+          break
+        }
         default:
           nonexhaustive(change)
+      }
+      if (plan.edits.size === 0) {
+        return {
+          success: false,
+          error: 'No changes to apply',
+        }
       }
       return await this.applyPlan(plan)
     } catch (err) {
