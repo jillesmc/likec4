@@ -4,7 +4,6 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "install:chromium": "playwright install chromium",
     "generate:png": "likec4 export png -o ./generated/images --flat",
@@ -15,7 +14,8 @@
     "typecheck": "vitest run",
     "test:update-screenshots": "playwright test --update-snapshots",
     "test:playground": "playwright test -c playwright.playground.config.ts",
-    "test:mcp-app": "playwright test -c playwright.mcp-app.config.ts"
+    "test:mcp-app": "playwright test -c playwright.mcp-app.config.ts",
+    "test:dev-server": "playwright test -c playwright.dev-server.config.ts"
   },
   "dependencies": {
     "@likec4/core": "file:../packages/core/package.tgz",
@@ -37,5 +37,6 @@
     "vitest": "^4.1.11",
     "wrangler": "^4.149.0",
     "zx": "^8.8.5"
-  }
+  },
+  "packageManager": "pnpm@11.25.0"
 }

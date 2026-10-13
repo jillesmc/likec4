@@ -1,0 +1,16 @@
+specification {
+  element actor
+  element system
+}
+model {
+  // people
+  customer = actor 'Customer' {
+    description 'A customer of Cloud System'
+  }
+  cloud = system 'Cloud System'
+}
+views {
+  view index {
+    include *
+  }
+}
