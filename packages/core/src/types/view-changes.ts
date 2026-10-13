@@ -60,6 +60,21 @@ export namespace ViewChange {
     target: scalar.Fqn
     title?: string
   }
+
+  /**
+   * Add a model element.
+   * Written inside the parent's definition block, or in the `model {}` of the view file when there is no parent.
+   */
+  export interface AddElement {
+    op: 'add-element'
+    parent: scalar.Fqn | null
+    kind: scalar.ElementKind
+    title: string
+    /**
+     * Identifier of the element, derived from the title when omitted
+     */
+    name?: string
+  }
 }
 
 export type ViewChange =
@@ -69,6 +84,7 @@ export type ViewChange =
   | ViewChange.ChangeAutoLayout
   | ViewChange.ChangeProperty
   | ViewChange.AddRelation
+  | ViewChange.AddElement
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
