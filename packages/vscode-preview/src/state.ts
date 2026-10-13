@@ -233,11 +233,15 @@ const editorPort: LikeC4EditorCallbacks = {
     return nonNullable(view, `View ${viewId} not found`)
   },
   handleChange: async (viewId, change) => {
-    await ExtensionApi.change({
+    const result = await ExtensionApi.change({
       projectId: $projectId.get(),
       viewId,
       change,
     })
+    // Reject, so the editor removes pending items and shows the error
+    if (!result.success) {
+      throw new Error(result.error)
+    }
   },
   ...__HAS_AI && {
     applySemanticLayout: async (viewId) => {
