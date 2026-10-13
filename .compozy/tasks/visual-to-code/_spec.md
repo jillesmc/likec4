@@ -98,7 +98,7 @@ Features 6–8 are cross-cutting and apply to features 1–5.
 8. **Exclude (D6)**: `Del` on nodes writes `exclude <fqn>` for each selected node. On edges it
    writes `exclude <sourceFqn> -> <targetFqn>`. The model is not touched. Dynamic views have no
    `exclude` rule in the grammar, so `Del` is absent there in phase 1 (Q5).
-9. **Delete from model (D6)**:
+9. **Delete from model (D6, confirmed by the owner on 2026-10-13)**:
    - Elements and deployment nodes are blocked while any reference exists: relations (either end),
      nested children, `instanceOf`, `extend`, dynamic steps, and view rules in *any* view
      (including the current one). The dialog lists the references as the reason.

@@ -76,9 +76,12 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 - **Change**: double-click replaces the title with an `<input>` of the same size.
 - **States**: editing, empty-error (US-003.EC-2), committed (stays visible until sync), cancelled.
 
-### S6. Context menu
+### S6. "Delete from model" entry
 
-- **Change**: right-click on a node or edge in edit mode shows "Delete from model". It is absent
+- **Change (as implemented)**: instead of a right-click menu, there is a "Delete from model"
+  (trash) button in the existing node toolbar (element, compound and deployment nodes) and on the
+  label of a selected edge. Edges without a label have no button yet.
+- **Original change**: right-click on a node or edge in edit mode shows "Delete from model". It is absent
   for edges aggregating more than one relation (US-005.EC-1) and for definitions from other
   projects (US-005.EC-4).
 
