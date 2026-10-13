@@ -137,6 +137,21 @@ export const globalCss = defineGlobalStyles({
         height: '5px!',
         transform: 'translate(-50%, -50%)!',
       },
+      // When nodes are connectable (editor), show the source handle on hover to drag a relation
+      '& .react-flow__node:hover .likec4-node-handle-center.source.connectablestart': {
+        // right edge, bottom-center is taken by node action buttons
+        top: '50%!',
+        left: 'unset!',
+        right: '-7px!',
+        visibility: 'visible!',
+        width: '14px!',
+        height: '14px!',
+        transform: 'translate(0, -50%)!',
+        borderRadius: '50%',
+        border: '2px solid var(--xy-background-color, white)',
+        background: 'var(--xy-edge-stroke)',
+        cursor: 'crosshair',
+      },
     },
     '& :where(.react-flow__node, .react-flow__edge):has([data-likec4-dimmed])': {
       opacity: 0.25,
