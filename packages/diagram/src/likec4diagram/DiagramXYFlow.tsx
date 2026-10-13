@@ -5,7 +5,7 @@
 //
 // Portions of this file have been modified by NVIDIA CORPORATION & AFFILIATES.
 
-import { type EdgeId, type ElementKind, type NodeId, nonNullable } from '@likec4/core'
+import { type EdgeId, type NodeId, nonNullable } from '@likec4/core'
 import { cx } from '@likec4/styles/css'
 import { useDebouncedCallback, useTimeout } from '@mantine/hooks'
 import { useCustomCompareMemo } from '@react-hookz/web'
@@ -14,7 +14,7 @@ import type { OnMove, OnMoveEnd, Viewport } from '@xyflow/system'
 import { shallowEqual } from 'fast-equals'
 import type { MouseEvent as ReactMouseEvent, PropsWithChildren } from 'react'
 import type { JSX } from 'react/jsx-runtime'
-import { isEmpty, keys } from 'remeda'
+import { isEmpty } from 'remeda'
 import type { Simplify } from 'type-fest'
 import { BaseXYFlow } from '../base/BaseXYFlow'
 import { IS_SERVER } from '../base/const'
@@ -22,13 +22,14 @@ import { useDiagramEventHandlers } from '../context'
 import { useOptionalLikeC4Model } from '../context/LikeC4ModelContext'
 import { useRootContainer } from '../context/RootContainerContext'
 import {
+  canvasPalette,
   editorAffordances,
   ElementPalette,
   excludeChangeOf,
   Ghosts,
   innermostNode,
   resolveConnection,
-  useElementDrop,
+  useCanvasDrop,
   useTitleEditing,
 } from '../editor-ui'
 import {
@@ -132,7 +133,7 @@ const selectXYProps = selectDiagramSnapshot(({ context: ctx, children }) => {
     nodesDraggable = ctx.nodesDraggable
   }
 
-  const { nodesConnectable, titlesEditable } = editorAffordances({
+  const { nodesConnectable, titlesEditable, itemsCreatable } = editorAffordances({
     enableReadOnly,
     isGraphVariant,
     viewType: ctx.view._type,
@@ -143,6 +144,7 @@ const selectXYProps = selectDiagramSnapshot(({ context: ctx, children }) => {
     isGraphVariant,
     nodesConnectable,
     titlesEditable,
+    itemsCreatable,
     viewType: ctx.view._type,
     // During SSR, consider initialized as true to avoid flashing
     initialized: IS_SERVER || (ctx.initialized.xydata && ctx.initialized.xyflow),
@@ -194,6 +196,7 @@ export function LikeC4DiagramXYFlow({
     isGraphVariant,
     nodesConnectable,
     titlesEditable,
+    itemsCreatable,
     viewType,
     initialized,
     nodes,
@@ -205,15 +208,12 @@ export function LikeC4DiagramXYFlow({
     ...props
   } = useDiagramSelector(selectXYProps)
   const isEditorBusy = useEditorActorStateHasTag('busy')
-  // Element kinds for the palette, available only with the model
-  // (keys of specification.elements are element kinds, Object.keys loses the tag)
-  const elementKinds = likec4model
-    ? keys(likec4model.specification.elements).map(kind => kind as ElementKind)
-    : null
+  // Palette of kinds to create items, available only with the model
+  const palette = itemsCreatable && likec4model ? canvasPalette(viewType, likec4model) : null
   const titleEditing = useTitleEditing(change => {
     diagram.editorActor().send({ type: 'change.view', change })
   })
-  const elementDrop = useElementDrop(elementKinds ?? [], (change, position) => {
+  const canvasDrop = useCanvasDrop(palette?.config ?? { viewType: 'element', kinds: [] }, (change, position) => {
     diagram.editorActor().send({ type: 'change.view', change, position })
   })
   nodesDraggable = resolveInteractionEnabled(nodesDraggable, nodesDraggableOverride, isEditorBusy)
@@ -336,9 +336,9 @@ export function LikeC4DiagramXYFlow({
       {...titlesEditable && {
         onNodeDoubleClick: titleEditing.onNodeDoubleClick,
       }}
-      {...nodesConnectable && elementKinds && {
-        onDragOver: elementDrop.onDragOver,
-        onDrop: elementDrop.onDrop,
+      {...palette && {
+        onDragOver: canvasDrop.onDragOver,
+        onDrop: canvasDrop.onDrop,
       }}
       onConnectEnd={useCallbackRef((event, connection) => {
         if (!nodesConnectable || !connection.fromNode) {
@@ -425,13 +425,13 @@ export function LikeC4DiagramXYFlow({
           maxZoom={props.maxZoom}
         />
       )}
-      {nodesConnectable && <Ghosts />}
-      {nodesConnectable && elementKinds && (
+      {itemsCreatable && <Ghosts />}
+      {palette && (
         <Panel position="center-right">
-          <ElementPalette kinds={elementKinds} />
+          <ElementPalette title={palette.title} items={palette.items} emptyMessage={palette.emptyMessage} />
         </Panel>
       )}
-      {nodesConnectable && elementDrop.popover}
+      {palette && canvasDrop.popover}
       {titlesEditable && titleEditing.editor}
       {children}
     </BaseXYFlow>

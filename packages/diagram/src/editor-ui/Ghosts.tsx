@@ -86,8 +86,10 @@ export function Ghosts() {
         switch (true) {
           case change.op === 'add-relation':
             return <GhostEdge key={i} source={change.source} target={change.target} />
-          case change.op === 'add-element' && position !== null:
+          case (change.op === 'add-element' || change.op === 'add-deployment-node') && position !== null:
             return <GhostElement key={i} title={change.title} position={position} />
+          case change.op === 'add-instance' && position !== null:
+            return <GhostElement key={i} title={change.element} position={position} />
           default:
             return null
         }

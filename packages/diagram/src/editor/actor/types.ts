@@ -65,6 +65,8 @@ export const isModelChange = (change: t.ViewChange): boolean =>
   || change.op === 'change-title'
   || change.op === 'exclude-from-view'
   || change.op === 'delete-from-model'
+  || change.op === 'add-deployment-node'
+  || change.op === 'add-instance'
 
 export interface EditorActorInput {
   viewId: t.ViewId
@@ -84,10 +86,17 @@ export const isViewChange = (change: SyncOp | null): change is t.ViewChange =>
 /**
  * Changes rendered as pending items (ghosts) until the view is synced
  */
-export type GhostChange = t.ViewChange.AddRelation | t.ViewChange.AddElement
+export type GhostChange =
+  | t.ViewChange.AddRelation
+  | t.ViewChange.AddElement
+  | t.ViewChange.AddDeploymentNode
+  | t.ViewChange.AddInstance
 
 export const isGhostChange = (change: t.ViewChange): change is GhostChange =>
-  change.op === 'add-relation' || change.op === 'add-element'
+  change.op === 'add-relation'
+  || change.op === 'add-element'
+  || change.op === 'add-deployment-node'
+  || change.op === 'add-instance'
 
 export interface Ghost {
   change: GhostChange

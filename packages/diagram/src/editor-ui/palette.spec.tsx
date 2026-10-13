@@ -5,13 +5,21 @@ import { titleKeyAction, TitlePrompt } from './TitlePrompt'
 
 describe('ElementPalette', () => {
   it('UT-070: lists element kinds in the given order', () => {
-    const html = renderToStaticMarkup(<ElementPalette kinds={['actor', 'system', 'service']} />)
+    const html = renderToStaticMarkup(
+      <ElementPalette
+        title="Elements"
+        emptyMessage="No element kinds in specification"
+        items={['actor', 'system', 'service'].map(kind => ({ kind, label: kind }))}
+      />,
+    )
     const kinds = [...html.matchAll(/data-likec4-palette-kind="([^"]+)"/g)].map(m => m[1])
     expect(kinds).toEqual(['actor', 'system', 'service'])
   })
 
   it('UT-071: shows empty state without kinds', () => {
-    const html = renderToStaticMarkup(<ElementPalette kinds={[]} />)
+    const html = renderToStaticMarkup(
+      <ElementPalette title="Elements" emptyMessage="No element kinds in specification" items={[]} />,
+    )
     expect(html).toContain('No element kinds in specification')
     expect(html).not.toContain('data-likec4-palette-kind')
   })
@@ -39,5 +47,10 @@ describe('TitlePrompt', () => {
     expect(titleKeyAction('Enter', 'Billing')).toBe('confirm')
     expect(titleKeyAction('Enter', '   ')).toBeNull()
     expect(titleKeyAction('a', 'Billing')).toBeNull()
+  })
+
+  it('with options, accepts only one of them', () => {
+    expect(titleKeyAction('Enter', 'cloud.api', ['cloud.api'])).toBe('confirm')
+    expect(titleKeyAction('Enter', 'cloud.db', ['cloud.api'])).toBeNull()
   })
 })

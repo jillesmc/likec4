@@ -281,7 +281,8 @@ export const settleGhosts = () =>
         ghosts: context.ghosts.filter(ghost => isPending(ghost, context)),
       })
     }
-    const placement = settled.findLast(g => g.change.op === 'add-element' && g.position)?.position
+    // Items placed on the canvas (all ghosts except relations)
+    const placement = settled.findLast(g => g.change.op !== 'add-relation' && g.position)?.position
     if (!placement && !context.refreshManualLayout) {
       return
     }

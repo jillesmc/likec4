@@ -28,16 +28,28 @@ const item: CSSProperties = {
   userSelect: 'none',
 }
 
+export type PaletteItem = {
+  /**
+   * Dragged value (kind, or a special item)
+   */
+  kind: string
+  label: string
+}
+
 /**
- * Element kinds from the specification, dragged onto the canvas to create elements
+ * Kinds from the specification (and special items), dragged onto the canvas to create elements
  */
-export function ElementPalette({ kinds }: { kinds: readonly string[] }) {
+export function ElementPalette({ title, items, emptyMessage }: {
+  title: string
+  items: readonly PaletteItem[]
+  emptyMessage: string
+}) {
   return (
     <div data-likec4-palette style={panel} className="nodrag nopan nowheel">
-      <div style={{ fontWeight: 600, opacity: 0.7 }}>Elements</div>
-      {kinds.length === 0
-        ? <div style={{ opacity: 0.7 }}>No element kinds in specification</div>
-        : kinds.map(kind => (
+      <div style={{ fontWeight: 600, opacity: 0.7 }}>{title}</div>
+      {items.length === 0
+        ? <div style={{ opacity: 0.7 }}>{emptyMessage}</div>
+        : items.map(({ kind, label }) => (
           <div
             key={kind}
             data-likec4-palette-kind={kind}
@@ -47,7 +59,7 @@ export function ElementPalette({ kinds }: { kinds: readonly string[] }) {
               e.dataTransfer.setData(PALETTE_DRAG_TYPE, kind)
               e.dataTransfer.effectAllowed = 'copy'
             }}>
-            {kind}
+            {label}
           </div>
         ))}
     </div>

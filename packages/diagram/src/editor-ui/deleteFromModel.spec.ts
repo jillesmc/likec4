@@ -46,7 +46,7 @@ describe('canDeleteFromModel', () => {
 
 describe('editorAffordances', () => {
   it('UT-064: nothing is editable when read-only or in the graph variant', () => {
-    const none = { nodesConnectable: false, titlesEditable: false }
+    const none = { nodesConnectable: false, titlesEditable: false, itemsCreatable: false }
     expect(editorAffordances({ enableReadOnly: true, isGraphVariant: false, viewType: 'element' })).toEqual(none)
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: true, viewType: 'element' })).toEqual(none)
   })
@@ -55,14 +55,17 @@ describe('editorAffordances', () => {
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: false, viewType: 'element' })).toEqual({
       nodesConnectable: true,
       titlesEditable: true,
+      itemsCreatable: true,
     })
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: false, viewType: 'deployment' })).toEqual({
       nodesConnectable: false,
       titlesEditable: true,
+      itemsCreatable: true,
     })
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: false, viewType: 'dynamic' })).toEqual({
       nodesConnectable: false,
       titlesEditable: false,
+      itemsCreatable: false,
     })
   })
 })
