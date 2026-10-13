@@ -33,6 +33,12 @@ export const likec4rpc = rpc ?? {
   calcAdhocView: () => {
     throw new Error('likec4rpc.calcAdhocView is not available in production')
   },
+  undoChange: () => {
+    throw new Error('likec4rpc.undoChange is not available in production')
+  },
+  redoChange: () => {
+    throw new Error('likec4rpc.redoChange is not available in production')
+  },
 }
 `
 

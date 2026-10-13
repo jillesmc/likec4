@@ -23,6 +23,22 @@ export interface LikeC4VitePluginRpc {
   }): Promise<void>
 
   /**
+   * Undo the latest model change made from the canvas
+   * (Available in the dev server)
+   */
+  undoChange(payload: {
+    projectId: ProjectId
+  }): Promise<void>
+
+  /**
+   * Redo the latest undone model change
+   * (Available in the dev server)
+   */
+  redoChange(payload: {
+    projectId: ProjectId
+  }): Promise<void>
+
+  /**
    * Calculate an adhoc view
    * (Available in the dev server)
    */
