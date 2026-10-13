@@ -84,6 +84,30 @@ export namespace ViewChange {
     target: scalar.Fqn | scalar.DeploymentFqn
     title: string
   }
+
+  export type ExcludeTarget =
+    | { node: scalar.Fqn | scalar.DeploymentFqn }
+    | { edge: { source: scalar.Fqn | scalar.DeploymentFqn; target: scalar.Fqn | scalar.DeploymentFqn } }
+
+  /**
+   * Hide items from this view only, with `exclude` rules (the model is not changed)
+   */
+  export interface ExcludeFromView {
+    op: 'exclude-from-view'
+    targets: NonEmptyArray<ExcludeTarget>
+  }
+
+  /**
+   * Remove a definition from the model.
+   * Rejected while the element or deployment node is referenced.
+   */
+  export interface DeleteFromModel {
+    op: 'delete-from-model'
+    target:
+      | { element: scalar.Fqn }
+      | { deploymentNode: scalar.DeploymentFqn }
+      | { relation: scalar.RelationId }
+  }
 }
 
 export type ViewChange =
@@ -95,6 +119,8 @@ export type ViewChange =
   | ViewChange.AddRelation
   | ViewChange.AddElement
   | ViewChange.ChangeTitle
+  | ViewChange.ExcludeFromView
+  | ViewChange.DeleteFromModel
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
