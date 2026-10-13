@@ -181,3 +181,31 @@ test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page
   await expect.poll(() => readServed(), { timeout: 10_000 }).toBe(changed)
   await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
 })
+
+test('US-007 + US-008: deployment view palette creates nodes and instances', async ({ page }) => {
+  await page.goto('/view/prod/')
+  const prod = page.locator('.react-flow__node[data-id="prod"]')
+  await expect(prod).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  // Deployment node kind dropped on "prod"
+  await page.locator('[data-likec4-palette-kind="vm"]').dragTo(prod)
+  const title = page.getByLabel('Title of the new vm')
+  await title.fill('Worker')
+  await title.press('Enter')
+  await expect.poll(() => readServed('deployment.c4'), { timeout: 10_000 }).toContain(
+    `  prod = env 'Production' {\n    worker = vm 'Worker'\n  }`,
+  )
+
+  // "Instance" dropped on the new node
+  const worker = page.locator('.react-flow__node[data-id="prod.worker"]')
+  await expect(worker).toBeVisible({ timeout: 10_000 })
+  await page.locator('[data-likec4-palette-kind="@instance"]').dragTo(worker)
+  const element = page.getByLabel('Element to deploy')
+  await element.fill('customer')
+  await element.press('Enter')
+  await expect.poll(() => readServed('deployment.c4'), { timeout: 10_000 }).toContain(
+    `    worker = vm 'Worker' {\n      instanceOf customer\n    }`,
+  )
+  await expect(page.locator('.react-flow__node[data-id="prod.worker.customer"]')).toBeVisible({ timeout: 10_000 })
+})

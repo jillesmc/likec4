@@ -1,0 +1,12 @@
+specification {
+  deploymentNode env
+  deploymentNode vm
+}
+deployment {
+  prod = env 'Production'
+}
+views {
+  deployment view prod {
+    include prod, prod.**
+  }
+}
