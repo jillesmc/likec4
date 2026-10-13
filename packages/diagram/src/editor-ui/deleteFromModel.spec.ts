@@ -51,7 +51,7 @@ describe('editorAffordances', () => {
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: true, viewType: 'element' })).toEqual(none)
   })
 
-  it('connecting only in element views, titles in element and deployment views', () => {
+  it('connecting in element and dynamic views, titles and palette in element and deployment views', () => {
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: false, viewType: 'element' })).toEqual({
       nodesConnectable: true,
       titlesEditable: true,
@@ -63,7 +63,7 @@ describe('editorAffordances', () => {
       itemsCreatable: true,
     })
     expect(editorAffordances({ enableReadOnly: false, isGraphVariant: false, viewType: 'dynamic' })).toEqual({
-      nodesConnectable: false,
+      nodesConnectable: true,
       titlesEditable: false,
       itemsCreatable: false,
     })

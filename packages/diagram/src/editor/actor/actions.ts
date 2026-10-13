@@ -282,7 +282,9 @@ export const settleGhosts = () =>
       })
     }
     // Items placed on the canvas (all ghosts except relations)
-    const placement = settled.findLast(g => g.change.op !== 'add-relation' && g.position)?.position
+    const placement = settled.findLast(g =>
+      g.change.op !== 'add-relation' && g.change.op !== 'add-dynamic-step' && g.position
+    )?.position
     if (!placement && !context.refreshManualLayout) {
       return
     }

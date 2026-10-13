@@ -67,6 +67,7 @@ export const isModelChange = (change: t.ViewChange): boolean =>
   || change.op === 'delete-from-model'
   || change.op === 'add-deployment-node'
   || change.op === 'add-instance'
+  || change.op === 'add-dynamic-step'
 
 export interface EditorActorInput {
   viewId: t.ViewId
@@ -91,12 +92,14 @@ export type GhostChange =
   | t.ViewChange.AddElement
   | t.ViewChange.AddDeploymentNode
   | t.ViewChange.AddInstance
+  | t.ViewChange.AddDynamicStep
 
 export const isGhostChange = (change: t.ViewChange): change is GhostChange =>
   change.op === 'add-relation'
   || change.op === 'add-element'
   || change.op === 'add-deployment-node'
   || change.op === 'add-instance'
+  || change.op === 'add-dynamic-step'
 
 export interface Ghost {
   change: GhostChange

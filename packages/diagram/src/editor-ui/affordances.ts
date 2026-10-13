@@ -9,8 +9,8 @@ export function editorAffordances({ enableReadOnly, isGraphVariant, viewType }: 
 }): { nodesConnectable: boolean; titlesEditable: boolean; itemsCreatable: boolean } {
   const editable = !enableReadOnly && !isGraphVariant
   return {
-    // Connecting nodes creates relations, only in element views
-    nodesConnectable: editable && viewType === 'element',
+    // Connecting nodes creates relations in element views, steps in dynamic views
+    nodesConnectable: editable && viewType !== 'deployment',
     // Titles can be edited in element and deployment views
     titlesEditable: editable && viewType !== 'dynamic',
     // Palette (create elements / deployment nodes) in element and deployment views

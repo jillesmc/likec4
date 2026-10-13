@@ -20,6 +20,18 @@ describe('resolveConnection', () => {
     })
   })
 
+  it('creates add-dynamic-step in dynamic views (US-009)', () => {
+    expect(resolveConnection(node('web'), node('api'), 'dynamic')).toEqual({
+      op: 'add-dynamic-step',
+      source: 'web',
+      target: 'api',
+    })
+  })
+
+  it('does nothing in deployment views', () => {
+    expect(resolveConnection(node('a'), node('b'), 'deployment')).toBeNull()
+  })
+
   it('UT-060: ignores connection to itself', () => {
     expect(resolveConnection(node('a'), node('a'))).toBeNull()
   })

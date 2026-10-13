@@ -17,20 +17,22 @@ export function modelFqnOf(node: ConnectableNode | null | undefined): Fqn | null
 }
 
 /**
- * Converts a connection gesture between two nodes into an `add-relation` change.
+ * Converts a connection gesture between two nodes into a change:
+ * `add-relation` in element views, `add-dynamic-step` in dynamic views.
  * Returns null when the connection is not valid (no target, same element, not model elements)
  */
 export function resolveConnection(
   from: ConnectableNode | null | undefined,
   to: ConnectableNode | null | undefined,
-): ViewChange.AddRelation | null {
+  viewType: 'element' | 'deployment' | 'dynamic' = 'element',
+): ViewChange.AddRelation | ViewChange.AddDynamicStep | null {
   const source = modelFqnOf(from)
   const target = modelFqnOf(to)
-  if (!source || !target || source === target) {
+  if (!source || !target || source === target || viewType === 'deployment') {
     return null
   }
   return {
-    op: 'add-relation',
+    op: viewType === 'dynamic' ? 'add-dynamic-step' : 'add-relation',
     source,
     target,
   }

@@ -84,7 +84,7 @@ export function Ghosts() {
     <ViewportPortal>
       {ghosts.map(({ change, position }, i) => {
         switch (true) {
-          case change.op === 'add-relation':
+          case change.op === 'add-relation' || change.op === 'add-dynamic-step':
             return <GhostEdge key={i} source={change.source} target={change.target} />
           case (change.op === 'add-element' || change.op === 'add-deployment-node') && position !== null:
             return <GhostElement key={i} title={change.title} position={position} />

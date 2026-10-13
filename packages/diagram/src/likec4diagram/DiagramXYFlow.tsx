@@ -135,7 +135,8 @@ const selectXYProps = selectDiagramSnapshot(({ context: ctx, children }) => {
 
   const { nodesConnectable, titlesEditable, itemsCreatable } = editorAffordances({
     enableReadOnly,
-    isGraphVariant,
+    // sequence variant of dynamic views is not editable on the canvas
+    isGraphVariant: isGraphVariant || (ctx.view._type === 'dynamic' && ctx.dynamicViewVariant === 'sequence'),
     viewType: ctx.view._type,
   })
 
@@ -353,7 +354,7 @@ export function LikeC4DiagramXYFlow({
             height: 1,
           }))
           : null)
-        const change = resolveConnection(connection.fromNode, toNode)
+        const change = resolveConnection(connection.fromNode, toNode, viewType)
         if (change) {
           diagram.editorActor().send({ type: 'change.view', change })
         }
