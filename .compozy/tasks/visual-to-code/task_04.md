@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 4: Inline retitle of nodes"
 type: feature
 complexity: medium
@@ -28,9 +28,9 @@ sources changes in place. This covers elements, deployment nodes and deployed in
 
 ## Subtasks
 
-- [ ] 4.1 Core: `ViewChange.ChangeTitle`.
-- [ ] 4.2 Server: `changeTitle.ts` for `Element`, `DeploymentNode` and `DeployedInstance`.
-- [ ] 4.3 UI: `InlineTitleEditor` on double-click (Enter commits, Esc cancels, empty title →
+- [x] 4.1 Core: `ViewChange.ChangeTitle`.
+- [x] 4.2 Server: `changeTitle.ts` for `Element`, `DeploymentNode` and `DeployedInstance`.
+- [x] 4.3 UI: `InlineTitleEditor` on double-click (Enter commits, Esc cancels, empty title →
   error state).
 
 ## Implementation Details
@@ -45,4 +45,23 @@ sources changes in place. This covers elements, deployment nodes and deployed in
 
 ## Tests
 
-- [ ] UT-100, UT-101, UT-102, UT-103, UT-104, UT-105 — retitle variants
+- [x] UT-100, UT-101, UT-102, UT-103, UT-104, UT-105 — retitle variants
+
+## Completion Notes (2026-10-13)
+
+- Server: `changeTitle.ts` handles `Element`, `DeploymentNode` and `DeployedInstance`. It updates
+  the body `title` property when present, else the positional title, else inserts the title after
+  `name`/`kind` (or after `instanceOf <target>`). The same title is a no-op (`No changes to apply`).
+  An empty title is rejected (`invalid-name`), and an imported element is rejected
+  (`read-only-target`).
+- UI: `useTitleEditing` (double-click on a node) opens `TitlePrompt` over the node. The prompt
+  is reused from the drop popover, which was renamed from `DropPopover`. Enter saves, Esc cancels,
+  an empty title is refused, and an unchanged title is not sent. Enabled in element and deployment
+  views (not dynamic), only when editing is unlocked.
+- The manual check in `likec4 start` was replaced by an automated E2E in the dev-server suite
+  (`US-003: double-clicking a node edits its title in the sources`).
+- Fix found here: `e2e/.gitignore` ignores `tests/*.spec.ts`, so `tests/visual-to-code.spec.ts`
+  (E2E-001, E2E-002) was missing from the task 02/03 commits. It is now allow-listed and
+  committed.
+- Verification: language-server 883 passed; diagram 179 passed; `pnpm typecheck` passed (26 tasks);
+  dev-server E2E 3 passed (2 runs).
