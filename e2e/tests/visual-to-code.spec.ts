@@ -152,3 +152,32 @@ test('US-004 AC-4: excluding in a view with manual layout updates the snapshot w
   await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).not.toContain(`id: 'cloud'`)
   await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
 })
+
+test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
+  const fixture = await readServed()
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const handle = customer.locator('.react-flow__handle.source')
+  const from = (await handle.boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
+  const changed = await readServed()
+  expect(changed).toContain('-> cloud')
+
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toBe(fixture)
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0, { timeout: 10_000 })
+
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toBe(changed)
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
+})
