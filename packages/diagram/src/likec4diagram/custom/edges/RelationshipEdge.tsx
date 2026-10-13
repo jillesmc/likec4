@@ -22,6 +22,7 @@ import {
   memoEdge,
 } from '../../../base-primitives'
 import { useEnabledFeatures } from '../../../context/DiagramFeatures'
+import { canDeleteFromModel, DeleteFromModelButton } from '../../../editor-ui'
 import { useCallbackRef } from '../../../hooks/useCallbackRef'
 import { useDiagram } from '../../../hooks/useDiagram'
 import { useSetState } from '../../../hooks/useSetState'
@@ -63,6 +64,9 @@ export const RelationshipEdge = memoEdge<Types.EdgeProps<'relationship'>>((props
     enableCompareWithLatest,
   } = useEnabledFeatures()
   const enabledEditing = !enableReadOnly
+  // Only an edge of a single relation can be deleted from the model
+  const edgeRelations = enabledEditing ? diagram.findDiagramEdge(props.id as EdgeId)?.relations ?? [] : []
+  const deletableRelation = canDeleteFromModel({ relations: edgeRelations }) ? edgeRelations[0] : undefined
   const {
     id,
     selected = false,
@@ -334,6 +338,12 @@ export const RelationshipEdge = memoEdge<Types.EdgeProps<'relationship'>>((props
               className={enabledEditing ? edgesCss.labelDraggable : undefined}
               {...sequenceStepData}
               edgeProps={props}>
+              {deletableRelation && selected && (
+                <DeleteFromModelButton
+                  button="edge"
+                  target={{ relation: deletableRelation }}
+                  title={data.label ?? 'relation'} />
+              )}
               {navigateTo && (
                 <EdgeActionButton
                   ariaLabel="Navigate to view"

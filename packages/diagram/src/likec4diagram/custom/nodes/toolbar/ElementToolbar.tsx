@@ -3,6 +3,7 @@ import type { Fqn } from '@likec4/core/types'
 import { Button, Menu, MenuDropdown, MenuItem, MenuTarget } from '@mantine/core'
 import { IconCheck, IconSelector } from '@tabler/icons-react'
 import { useEnabledFeatures } from '../../../../context/DiagramFeatures'
+import { canDeleteFromModel, DeleteFromModelButton } from '../../../../editor-ui'
 import { stopPropagation } from '../../../../utils/xyflow'
 import type { Types } from '../../../types'
 import { BorderStyleOption, BrowseRelationshipsButton, GoToSourceButton } from './_shared'
@@ -49,6 +50,9 @@ export function ElementToolbar(props: Types.NodeProps<'element' | 'seq-actor'> &
       />
       {enableVscode && <GoToSourceButton elementId={modelFqn} />}
       {enableRelationshipBrowser && <BrowseRelationshipsButton fqn={modelFqn} />}
+      {canDeleteFromModel({ element: modelFqn }) && (
+        <DeleteFromModelButton target={{ element: modelFqn }} title={props.data.title} />
+      )}
     </Toolbar>
   )
 }
@@ -86,6 +90,7 @@ export function DeploymentElementToolbar(props: Types.NodeProps<'deployment'>) {
       />
       {enableVscode && <GoToSourceButton deploymentId={deploymentFqn} />}
       {enableRelationshipBrowser && modelFqn && <BrowseRelationshipsButton fqn={modelFqn} />}
+      <DeleteFromModelButton target={{ deploymentNode: deploymentFqn }} title={props.data.title} />
     </Toolbar>
   )
 }

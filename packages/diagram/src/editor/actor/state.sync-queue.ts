@@ -3,15 +3,14 @@ import { findLast } from 'remeda'
 import { assign, enqueueActions, log, sendTo } from 'xstate'
 import { typedSystem } from '../../likec4diagram/state/utils'
 import {
-  addGhost,
   cancelSync,
   clearQueue,
-  deleteNodesAndEdges,
   makeSnapshot,
   pushToSyncQueue,
   redo,
   scheduleSync,
   settleGhosts,
+  trackChange,
   undo,
 } from './actions'
 import { machine } from './setup'
@@ -36,15 +35,12 @@ const idle = machine.createStateConfig({
     ...to.pending,
   },
   on: {
-    'delete.nodes-edges': {
-      actions: deleteNodesAndEdges(),
-    },
     'change.sync-snapshot': {
       actions: pushToSyncQueue(),
       ...to.pending,
     },
     'change.*': {
-      actions: [pushToSyncQueue(), addGhost()],
+      actions: [pushToSyncQueue(), trackChange()],
       ...to.process,
     },
     'undo': {
@@ -77,13 +73,8 @@ const pending = machine.createStateConfig({
     },
     // All other changes route to process
     'change.*': {
-      actions: [pushToSyncQueue(), addGhost()],
+      actions: [pushToSyncQueue(), trackChange()],
       ...to.process,
-    },
-    'delete.nodes-edges': {
-      actions: deleteNodesAndEdges(),
-      reenter: true,
-      ...to.pending,
     },
     // When editing starts, we suspend the queue
     'edit.move.start': {
@@ -378,7 +369,7 @@ const process = machine.createStateConfig({
   on: {
     // Queue view changes while processing, they are executed next
     'change.view': {
-      actions: [pushToSyncQueue(), addGhost()],
+      actions: [pushToSyncQueue(), trackChange()],
     },
     // 'change.*': {
     //   actions: log(({ event }) => `ignore ${event.type} in process state`),

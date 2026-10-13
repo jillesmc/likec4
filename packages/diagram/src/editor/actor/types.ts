@@ -10,7 +10,6 @@ export type EditorActorEvent =
   | { type: 'change.semantic-layout' }
   | { type: 'change.latest-to-manual' }
   | { type: 'change.sync-snapshot' }
-  | { type: 'delete.nodes-edges'; nodeIds: t.NodeId[]; edgeIds: t.EdgeId[] }
   // view update has been received, consider synced
   | { type: 'view.synched' }
   | { type: 'cancel' }
@@ -95,6 +94,11 @@ export interface EditorActorContext {
    * Position for the element created on the canvas, applied to the manual layout once the view is synced
    */
   pendingPlacement: XYPoint | null
+
+  /**
+   * Items were removed from the view, refresh the manual layout once the view is synced
+   */
+  refreshManualLayout: boolean
 
   /**
    * Error of the last rejected change, shown to the user until dismissed

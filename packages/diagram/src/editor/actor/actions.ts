@@ -156,65 +156,6 @@ export const redo = () =>
     })
   })
 
-export const deleteNodesAndEdges = () =>
-  machine.enqueueActions(({ context, system, event, enqueue }) => {
-    assertEvent(event, 'delete.nodes-edges')
-    if (import.meta.env.DEV) {
-      console.log('deleteNodesAndEdges', { history: context.history, event })
-    }
-    // xyflow already cascades deletion to child nodes, so event.nodeIds is complete
-    const deletedNodeIds = new Set(event.nodeIds)
-    const willNotBeDeletedNode = (node: t.NodeId | t.DiagramNode) =>
-      !deletedNodeIds.has(typeof node === 'string' ? node : node.id)
-    const snapshot = makeSnapshot(system)
-
-    // Explicitly deleted edges, plus any edge incident to a deleted node
-    const deletedEdgeIds = new Set(event.edgeIds)
-    for (const edge of snapshot.view.edges) {
-      if (deletedNodeIds.has(edge.source) || deletedNodeIds.has(edge.target)) {
-        deletedEdgeIds.add(edge.id)
-      }
-    }
-    const willNotBeDeletedEdge = (edge: t.EdgeId | t.DiagramEdge) =>
-      !deletedEdgeIds.has(typeof edge === 'string' ? edge : edge.id)
-
-    enqueue.assign({
-      history: {
-        head: snapshot,
-        tail: context.history,
-      },
-      redo: null,
-    })
-
-    const cleanupNode = <N extends t.DiagramNode>(node: N): N => {
-      if (
-        node.children.every(willNotBeDeletedNode)
-        && node.inEdges.every(willNotBeDeletedEdge)
-        && node.outEdges.every(willNotBeDeletedEdge)
-      ) {
-        return node
-      }
-      return {
-        ...node,
-        children: node.children.filter(willNotBeDeletedNode),
-        inEdges: node.inEdges.filter(willNotBeDeletedEdge),
-        outEdges: node.outEdges.filter(willNotBeDeletedEdge),
-      }
-    }
-
-    enqueue(cancelSync())
-    enqueue(scheduleSync())
-    enqueue.sendTo(typedSystem.diagramActor, {
-      type: 'update.view',
-      view: {
-        ...snapshot.view,
-        nodes: snapshot.view.nodes.filter(willNotBeDeletedNode).map(cleanupNode),
-        edges: snapshot.view.edges.filter(willNotBeDeletedEdge),
-      },
-      source: 'editor',
-    })
-  })
-
 export const pushToSyncQueue = () =>
   machine.assign(({ context: { syncQueue }, event }) => {
     let nextOp: SyncOp
@@ -272,16 +213,27 @@ export const pushToSyncQueue = () =>
   })
 
 /**
- * Render changes that create new items as ghosts, until the view is synced
+ * Track changes made on the canvas:
+ * - changes that create new items are rendered as ghosts, until the view is synced
+ * - changes that remove items from the view refresh the manual layout, once synced
  */
-export const addGhost = () =>
+export const trackChange = () =>
   machine.assign(({ context: { ghosts }, event }) => {
-    if (event.type !== 'change.view' || !isGhostChange(event.change)) {
+    if (event.type !== 'change.view') {
       return {}
     }
-    return {
-      ghosts: [...ghosts, { change: event.change, position: event.position ?? null }],
+    const { change } = event
+    if (isGhostChange(change)) {
+      return {
+        ghosts: [...ghosts, { change, position: event.position ?? null }],
+      }
     }
+    if (change.op === 'exclude-from-view' || change.op === 'delete-from-model') {
+      return {
+        refreshManualLayout: true,
+      }
+    }
+    return {}
   })
 
 const isPending = (ghost: Ghost, { syncQueue, processing }: Pick<EditorActorContext, 'syncQueue' | 'processing'>) =>
@@ -293,16 +245,19 @@ const isPending = (ghost: Ghost, { syncQueue, processing }: Pick<EditorActorCont
  */
 export const settleGhosts = () =>
   machine.enqueueActions(({ context, system, enqueue }) => {
-    if (context.ghosts.length === 0) {
+    const settled = context.ghosts.filter(ghost => !isPending(ghost, context))
+    if (settled.length > 0) {
+      enqueue.assign({
+        ghosts: context.ghosts.filter(ghost => isPending(ghost, context)),
+      })
+    }
+    const placement = settled.findLast(g => g.change.op === 'add-element' && g.position)?.position
+    if (!placement && !context.refreshManualLayout) {
       return
     }
-    const settled = context.ghosts.filter(ghost => !isPending(ghost, context))
-    enqueue.assign({
-      ghosts: context.ghosts.filter(ghost => isPending(ghost, context)),
-    })
-    const placement = settled.findLast(g => g.change.op === 'add-element' && g.position)?.position
-    if (placement && getDiagramContext(system).view._layout === 'manual') {
-      enqueue.assign({ pendingPlacement: placement })
+    enqueue.assign({ refreshManualLayout: false })
+    if (getDiagramContext(system).view._layout === 'manual') {
+      enqueue.assign({ pendingPlacement: placement ?? null })
       enqueue.raise({ type: 'change.latest-to-manual' })
     }
   })

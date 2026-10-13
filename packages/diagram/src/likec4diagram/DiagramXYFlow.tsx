@@ -21,7 +21,16 @@ import { IS_SERVER } from '../base/const'
 import { useDiagramEventHandlers } from '../context'
 import { useOptionalLikeC4Model } from '../context/LikeC4ModelContext'
 import { useRootContainer } from '../context/RootContainerContext'
-import { ElementPalette, Ghosts, innermostNode, resolveConnection, useElementDrop, useTitleEditing } from '../editor-ui'
+import {
+  editorAffordances,
+  ElementPalette,
+  excludeChangeOf,
+  Ghosts,
+  innermostNode,
+  resolveConnection,
+  useElementDrop,
+  useTitleEditing,
+} from '../editor-ui'
 import {
   selectDiagramSnapshot,
   useCallbackRef,
@@ -88,6 +97,8 @@ export function resolveControlledViewport(
   }
 }
 
+const DELETE_KEYS = ['Backspace', 'Delete']
+
 export function resolveInteractionEnabled(
   enabled: boolean,
   override: boolean | undefined,
@@ -121,16 +132,18 @@ const selectXYProps = selectDiagramSnapshot(({ context: ctx, children }) => {
     nodesDraggable = ctx.nodesDraggable
   }
 
-  // Connecting nodes creates relations, only in element views
-  const nodesConnectable = !enableReadOnly && !isGraphVariant && ctx.view._type === 'element'
-  // Titles can be edited in element and deployment views
-  const titlesEditable = !enableReadOnly && !isGraphVariant && ctx.view._type !== 'dynamic'
+  const { nodesConnectable, titlesEditable } = editorAffordances({
+    enableReadOnly,
+    isGraphVariant,
+    viewType: ctx.view._type,
+  })
 
   return ({
     enableReadOnly,
     isGraphVariant,
     nodesConnectable,
     titlesEditable,
+    viewType: ctx.view._type,
     // During SSR, consider initialized as true to avoid flashing
     initialized: IS_SERVER || (ctx.initialized.xydata && ctx.initialized.xyflow),
     nodes: ctx.xynodes,
@@ -181,6 +194,7 @@ export function LikeC4DiagramXYFlow({
     isGraphVariant,
     nodesConnectable,
     titlesEditable,
+    viewType,
     initialized,
     nodes,
     edges,
@@ -306,15 +320,17 @@ export function LikeC4DiagramXYFlow({
         e.stopPropagation()
         diagram.send({ type: 'xyflow.edgeDoubleClick', edge })
       })}
-      onDelete={useCallbackRef(({ nodes, edges }) => {
-        if (enableReadOnly) {
-          return
+      deleteKeyCode={DELETE_KEYS}
+      onBeforeDelete={useCallbackRef(async ({ nodes, edges }) => {
+        // Deleting on the canvas excludes items from this view (the model is not changed).
+        // Items disappear once the view is synced, so nothing is removed locally.
+        if (!enableReadOnly) {
+          const change = excludeChangeOf(viewType, nodes, edges, id => xyflow.getNode(id))
+          if (change) {
+            diagram.editorActor().send({ type: 'change.view', change })
+          }
         }
-        diagram.editorActor().send({
-          type: 'delete.nodes-edges',
-          nodeIds: nodes.map(node => node.data.id),
-          edgeIds: edges.map(edge => edge.data.id),
-        })
+        return false
       })}
       nodesConnectable={nodesConnectable}
       {...titlesEditable && {
