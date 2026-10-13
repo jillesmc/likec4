@@ -17,9 +17,10 @@ export async function updateView({
   ].join(' '))
   const result = await likec4.editor.applyChange(data)
   if (!result.success) {
-    logger.error(`Failed to apply view change:\n${result.error}`)
-    const err = new Error(result.error)
-    err.stack = result.error
+    const message = result.code ? `[${result.code}] ${result.error}` : result.error
+    logger.error(`Failed to apply view change:\n${message}`)
+    const err = new Error(message)
+    err.stack = message
     throw err
   }
   logger.info([
