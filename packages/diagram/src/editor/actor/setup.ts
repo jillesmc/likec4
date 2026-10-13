@@ -13,12 +13,13 @@ import {
   defineActors,
 } from '../../utils/defineActors'
 import { hotkey } from './hotkey'
-import type {
-  EditorActorContext,
-  EditorActorEmitedEvent,
-  EditorActorEvent,
-  EditorActorInput,
-  EditorActorStateTag,
+import {
+  type EditorActorContext,
+  type EditorActorEmitedEvent,
+  type EditorActorEvent,
+  type EditorActorInput,
+  type EditorActorStateTag,
+  isModelHistoryEntry,
 } from './types'
 
 export namespace EditorCalls {
@@ -60,6 +61,10 @@ export namespace EditorCalls {
        * Changes rejected by the editor port, with the error message
        */
       failed: Array<{ change: t.ViewChange; error: string }>
+      /**
+       * Number of applied model changes that can be undone through the editor port
+       */
+      undoable: number
       waitForViewSync: boolean
     }
   }
@@ -83,11 +88,28 @@ const applySemanticLayout = fromPromise<EditorCalls.ApplySemanticLayout.Output, 
   },
 )
 
+export namespace EditorCalls {
+  export type ModelHistory = (
+    params: { input: ModelHistory.Input },
+  ) => Promise<ModelHistory.Output>
+  export namespace ModelHistory {
+    export type Input = { viewId: t.ViewId; direction: 'undo' | 'redo' }
+    export type Output = {}
+  }
+}
+
+const modelHistory = fromPromise<EditorCalls.ModelHistory.Output, EditorCalls.ModelHistory.Input>(
+  () => {
+    throw new Error('Not implemented')
+  },
+)
+
 const actors = defineActors({
   hotkey,
   applyLatest,
   executeChange,
   applySemanticLayout,
+  modelHistory,
 })
 
 export const machine = setup({
@@ -110,6 +132,8 @@ export const machine = setup({
     'has pending': ({ context }) => context.syncQueue.length > 0,
     'can undo': ({ context }) => context.history !== null,
     'can redo': ({ context }) => context.redo !== null,
+    'next undo is model change': ({ context }) => !!context.history && isModelHistoryEntry(context.history.head),
+    'next redo is model change': ({ context }) => !!context.redo && isModelHistoryEntry(context.redo.head),
   },
 })
 

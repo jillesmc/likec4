@@ -6,7 +6,15 @@ import type { DiagramContext } from '../../likec4diagram/state/types'
 import { typedSystem } from '../../likec4diagram/state/utils'
 import type { Types } from '../../likec4diagram/types'
 import { machine } from './setup'
-import { type EditorActorContext, type Ghost, type Snapshot, type SyncOp, isGhostChange } from './types'
+import {
+  type EditorActorContext,
+  type Ghost,
+  type Snapshot,
+  type SyncOp,
+  isGhostChange,
+  isModelHistoryEntry,
+  isViewChange,
+} from './types'
 
 /**
  * Actually this is DiagramActorRef
@@ -42,7 +50,8 @@ export const isLayoutChange = (
 export const isLayoutChangeOp = <T extends SyncOp>(
   op: T,
 ): op is Extract<T, string | LayoutChanges> =>
-  op === 'apply-latest-to-manual' || op === 'apply-semantic-layout' || op === 'sync-snapshot' || isLayoutChange(op)
+  op === 'apply-latest-to-manual' || op === 'apply-semantic-layout' || op === 'sync-snapshot'
+  || (isViewChange(op) && isLayoutChange(op))
 
 export const withoutSnapshotChanges = filter<t.ViewChange[], Exclude<t.ViewChange, LayoutChanges>>(
   isNot(isLayoutChange),
@@ -111,6 +120,14 @@ export const undo = () =>
     }
 
     const last = history.head
+    if (isModelHistoryEntry(last)) {
+      enqueue.assign({
+        history: history.tail,
+        redo: { head: last, tail: redo },
+      })
+      enqueue.raise({ type: 'change.undo-model' })
+      return
+    }
 
     enqueue.assign({
       history: history.tail,
@@ -137,6 +154,14 @@ export const redo = () =>
     }
 
     const last = redo.head
+    if (isModelHistoryEntry(last)) {
+      enqueue.assign({
+        history: { head: last, tail: history },
+        redo: redo.tail,
+      })
+      enqueue.raise({ type: 'change.redo-model' })
+      return
+    }
 
     enqueue.assign({
       history: {
@@ -172,6 +197,11 @@ export const pushToSyncQueue = () =>
       case 'change.sync-snapshot':
         nextOp = 'sync-snapshot'
         break
+      case 'change.undo-model':
+        // Every undo / redo is executed, never deduplicated
+        return { syncQueue: [...syncQueue, 'undo-model'] }
+      case 'change.redo-model':
+        return { syncQueue: [...syncQueue, 'redo-model'] }
       default:
         throw new Error(`Invalid event type: ${event.type}`)
     }

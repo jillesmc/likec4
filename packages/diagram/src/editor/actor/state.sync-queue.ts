@@ -14,7 +14,7 @@ import {
   undo,
 } from './actions'
 import { machine } from './setup'
-import { isViewChange } from './types'
+import { isViewChange, withoutModelEntries } from './types'
 
 const to = {
   idle: { target: '#queue-idle' },
@@ -164,6 +164,10 @@ const process = machine.createStateConfig({
           target: 'applySemanticLayout',
         },
         {
+          guard: ({ context: { processing } }) => processing === 'undo-model' || processing === 'redo-model',
+          target: 'modelHistory',
+        },
+        {
           guard: ({ context: { processing } }) => isViewChange(processing),
           target: 'executeChanges',
         },
@@ -295,6 +299,14 @@ const process = machine.createStateConfig({
               processing: null,
               syncQueue: context.syncQueue.filter(change => !isViewChange(change) || !requested.includes(change)),
             })
+            // Applied model changes can be undone through the editor port
+            let history = context.history
+            for (let i = 0; i < event.output.undoable; i++) {
+              history = { head: { kind: 'model' }, tail: history }
+            }
+            if (history !== context.history) {
+              enqueue.assign({ history, redo: null })
+            }
             const failed = event.output.failed
             if (failed.length > 0) {
               const failedChanges = failed.map(f => f.change)
@@ -327,6 +339,31 @@ const process = machine.createStateConfig({
           actions: ({ event }) => {
             console.error('executeChanges onError', { error: event.error })
           },
+          target: 'failure',
+        },
+      },
+    }),
+
+    /**
+     * Undo / redo a model change through the editor port
+     */
+    modelHistory: machine.createStateConfig({
+      invoke: {
+        src: 'modelHistory',
+        input: ({ context: { processing, viewId } }) => ({
+          viewId,
+          direction: processing === 'redo-model' ? 'redo' : 'undo',
+        }),
+        onDone: {
+          target: 'waitViewSynced',
+        },
+        onError: {
+          // The model history is not available anymore (e.g. file changed since the edit)
+          actions: assign(({ context, event }) => ({
+            lastError: event.error instanceof Error ? event.error.message : String(event.error),
+            history: withoutModelEntries(context.history),
+            redo: withoutModelEntries(context.redo),
+          })),
           target: 'failure',
         },
       },
@@ -370,6 +407,21 @@ const process = machine.createStateConfig({
     // Queue view changes while processing, they are executed next
     'change.view': {
       actions: [pushToSyncQueue(), trackChange()],
+    },
+    // Undo / redo of model changes are queued as well (layout undo waits for idle)
+    'undo': {
+      guard: 'next undo is model change',
+      actions: undo(),
+    },
+    'redo': {
+      guard: 'next redo is model change',
+      actions: redo(),
+    },
+    'change.undo-model': {
+      actions: pushToSyncQueue(),
+    },
+    'change.redo-model': {
+      actions: pushToSyncQueue(),
     },
     // 'change.*': {
     //   actions: log(({ event }) => `ignore ${event.type} in process state`),

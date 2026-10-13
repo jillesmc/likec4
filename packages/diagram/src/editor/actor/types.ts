@@ -10,6 +10,9 @@ export type EditorActorEvent =
   | { type: 'change.semantic-layout' }
   | { type: 'change.latest-to-manual' }
   | { type: 'change.sync-snapshot' }
+  // Undo / redo of a model change (raised by undo / redo)
+  | { type: 'change.undo-model' }
+  | { type: 'change.redo-model' }
   // view update has been received, consider synced
   | { type: 'view.synched' }
   | { type: 'cancel' }
@@ -28,10 +31,40 @@ export type Snapshot = {
   xyedges: Types.Edge[]
 }
 
+/**
+ * Model change in the history, reverted / re-applied by the editor port
+ */
+export type ModelHistoryEntry = { kind: 'model' }
+
+export type HistoryEntry = Snapshot | ModelHistoryEntry
+
+export const isModelHistoryEntry = (entry: HistoryEntry): entry is ModelHistoryEntry => 'kind' in entry
+
 export type LinkedSnapshot = {
-  head: Snapshot
+  head: HistoryEntry
   tail: LinkedSnapshot | null
 }
+
+/**
+ * Removes model entries from the history (e.g. when the model history is not available anymore)
+ */
+export function withoutModelEntries(list: LinkedSnapshot | null): LinkedSnapshot | null {
+  if (!list) {
+    return null
+  }
+  const tail = withoutModelEntries(list.tail)
+  return isModelHistoryEntry(list.head) ? tail : { head: list.head, tail }
+}
+
+/**
+ * Changes that modify the sources and can be undone through the editor port
+ */
+export const isModelChange = (change: t.ViewChange): boolean =>
+  change.op === 'add-relation'
+  || change.op === 'add-element'
+  || change.op === 'change-title'
+  || change.op === 'exclude-from-view'
+  || change.op === 'delete-from-model'
 
 export interface EditorActorInput {
   viewId: t.ViewId
@@ -42,6 +75,8 @@ export type SyncOp =
   | 'sync-snapshot'
   | 'apply-semantic-layout'
   | 'apply-latest-to-manual'
+  | 'undo-model'
+  | 'redo-model'
 
 export const isViewChange = (change: SyncOp | null): change is t.ViewChange =>
   change !== null && typeof change !== 'string'

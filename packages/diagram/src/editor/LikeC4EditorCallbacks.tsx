@@ -53,6 +53,18 @@ export interface LikeC4EditorCallbacks {
     viewId: t.ViewId,
     change: t.ViewChange,
   ): void | LikeC4EditorChangeResult | Promise<void | LikeC4EditorChangeResult>
+
+  /**
+   * Revert the latest model change (Ctrl+Z on the canvas).
+   * When provided, model changes join the canvas undo history.
+   * Must reject when the change can not be reverted (e.g. file changed since the edit).
+   */
+  undoModelChange?: undefined | ((viewId: t.ViewId) => Promise<void>)
+
+  /**
+   * Re-apply the latest reverted model change (Ctrl+Shift+Z on the canvas)
+   */
+  redoModelChange?: undefined | ((viewId: t.ViewId) => Promise<void>)
 }
 
 export function createLikeC4Editor(callbacks: LikeC4EditorCallbacks): LikeC4EditorCallbacks {

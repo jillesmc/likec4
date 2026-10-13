@@ -12,11 +12,15 @@ const change = {
   },
 }
 
-function createTestActor(executeChange: EditorCalls.ExecuteChange) {
+function createTestActor(
+  executeChange: EditorCalls.ExecuteChange,
+  modelHistory: EditorCalls.ModelHistory = async () => ({}),
+) {
   const actor = createActor(
     editorActorLogic.provide({
       actors: {
         executeChange: fromPromise(executeChange),
+        modelHistory: fromPromise(modelHistory),
       },
     }),
     {
@@ -41,6 +45,7 @@ describe('editor sync queue', () => {
       requested: input.changes,
       applied: input.changes,
       failed: [],
+      undoable: 0,
       waitForViewSync: false,
     }))
     const actor = createTestActor(executeChange)
@@ -61,6 +66,7 @@ describe('editor sync queue', () => {
       requested: input.changes,
       applied: input.changes,
       failed: [],
+      undoable: 0,
       waitForViewSync: true,
     }))
     const actor = createTestActor(executeChange)
@@ -98,7 +104,7 @@ describe('editor sync queue', () => {
           await firstCall
         }
         executed.push(...input.changes)
-        return { requested: input.changes, applied: input.changes, failed: [], waitForViewSync: false }
+        return { requested: input.changes, applied: input.changes, failed: [], undoable: 0, waitForViewSync: false }
       })
       const actor = createTestActor(executeChange)
       const first = relation('a', 'b')
@@ -119,6 +125,7 @@ describe('editor sync queue', () => {
         requested: input.changes,
         applied: input.changes,
         failed: [],
+        undoable: 0,
         waitForViewSync: true,
       }))
       const actor = createTestActor(executeChange)
@@ -146,6 +153,7 @@ describe('editor sync queue', () => {
         requested: input.changes,
         applied: [],
         failed: input.changes.map(change => ({ change, error: '[not-found] Element "b" not found' })),
+        undoable: 0,
         waitForViewSync: false,
       }))
       const actor = createTestActor(executeChange)
@@ -159,6 +167,73 @@ describe('editor sync queue', () => {
 
       actor.send({ type: 'error.dismiss' })
       expect(actor.getSnapshot().context.lastError).toBeNull()
+      actor.stop()
+    })
+  })
+
+  describe('model change history', () => {
+    const change: ViewChange.ChangeTitle = { op: 'change-title', target: scalar.Fqn('a'), title: 'A' }
+    const executeUndoable = vi.fn<EditorCalls.ExecuteChange>(async ({ input }) => ({
+      requested: input.changes,
+      applied: input.changes,
+      failed: [],
+      undoable: input.changes.length,
+      waitForViewSync: false,
+    }))
+    const idle = (snapshot: { hasTag: (tag: 'busy') => boolean }) => !snapshot.hasTag('busy')
+
+    it('UT-130 (canvas): applied model changes join the history, undo and redo call the port', async () => {
+      const directions = [] as string[]
+      const actor = createTestActor(executeUndoable, async ({ input }) => {
+        directions.push(input.direction)
+        return {}
+      })
+      actor.send({ type: 'change.view', change })
+      await waitFor(actor, s => idle(s) && s.context.history !== null, { timeout: 500 })
+      expect(actor.getSnapshot().context.history).toEqual({ head: { kind: 'model' }, tail: null })
+
+      actor.send({ type: 'undo' })
+      await waitFor(actor, s => idle(s) && directions.length === 1, { timeout: 3000 })
+      expect(actor.getSnapshot().context.history).toBeNull()
+      expect(actor.getSnapshot().context.redo).toEqual({ head: { kind: 'model' }, tail: null })
+
+      actor.send({ type: 'redo' })
+      await waitFor(actor, s => idle(s) && directions.length === 2, { timeout: 3000 })
+      expect(directions).toEqual(['undo', 'redo'])
+      expect(actor.getSnapshot().context.history).toEqual({ head: { kind: 'model' }, tail: null })
+      actor.stop()
+    })
+
+    it('UT-132 (canvas): a refused undo shows the error and drops model entries', async () => {
+      const actor = createTestActor(executeUndoable, async () => {
+        throw new Error('[stale-undo] File changed since this edit; undo unavailable')
+      })
+      actor.send({ type: 'change.view', change })
+      await waitFor(actor, s => idle(s) && s.context.history !== null, { timeout: 500 })
+
+      actor.send({ type: 'undo' })
+      await waitFor(actor, s => s.context.lastError !== null, { timeout: 3000 })
+      expect(actor.getSnapshot().context.lastError).toBe('[stale-undo] File changed since this edit; undo unavailable')
+      expect(actor.getSnapshot().context.history).toBeNull()
+      expect(actor.getSnapshot().context.redo).toBeNull()
+      actor.stop()
+    })
+
+    it('two quick undos are both executed', async () => {
+      const directions = [] as string[]
+      const actor = createTestActor(executeUndoable, async ({ input }) => {
+        directions.push(input.direction)
+        return {}
+      })
+      actor.send({ type: 'change.view', change })
+      await waitFor(actor, s => idle(s) && s.context.history !== null, { timeout: 500 })
+      actor.send({ type: 'change.view', change: { ...change, title: 'B' } })
+      await waitFor(actor, s => idle(s) && s.context.history?.tail !== null, { timeout: 500 })
+
+      actor.send({ type: 'undo' })
+      actor.send({ type: 'undo' })
+      await waitFor(actor, () => directions.length === 2, { timeout: 5000 })
+      expect(directions).toEqual(['undo', 'undo'])
       actor.stop()
     })
   })

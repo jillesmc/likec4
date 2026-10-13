@@ -4,6 +4,7 @@ import { fromPromise } from 'xstate'
 import { useCallbackRef } from '../hooks'
 import { type EditorActorLogic, editorActorLogic } from './actor/machine'
 import type { EditorCalls } from './actor/setup'
+import { isModelChange } from './actor/types'
 import { applyChangesToManualLayout, placeNewNode } from './applyChangesToManualLayout'
 import { shouldWaitForViewSync } from './LikeC4EditorCallbacks'
 import { useOptionalLikeC4Editor } from './LikeC4EditorProvider'
@@ -51,19 +52,34 @@ export function useEditorActorLogic(): EditorActorLogic & {
       }
       const applied = [] as typeof input.changes
       const failed = [] as Array<{ change: (typeof input.changes)[number]; error: string }>
+      let undoable = 0
       let waitForViewSync = false
       for (const change of input.changes) {
         try {
           const result = await promisify(() => port.handleChange(input.viewId, change))
           applied.push(change)
           waitForViewSync ||= shouldWaitForViewSync(result)
+          if (port.undoModelChange && isModelChange(change)) {
+            undoable++
+          }
         } catch (error) {
           console.error('Failed to execute change', { change, error })
           failed.push({ change, error: error instanceof Error ? error.message : String(error) })
           waitForViewSync ||= shouldWaitForViewSync()
         }
       }
-      return { requested: input.changes, applied, failed, waitForViewSync }
+      return { requested: input.changes, applied, failed, undoable, waitForViewSync }
+    },
+  )
+
+  const modelHistory: EditorCalls.ModelHistory = useCallbackRef(
+    async ({ input: { viewId, direction } }) => {
+      const fn = direction === 'undo' ? port?.undoModelChange : port?.redoModelChange
+      if (!fn) {
+        throw new Error(`${direction} of model changes is not available`)
+      }
+      await fn(viewId)
+      return {}
     },
   )
 
@@ -95,8 +111,9 @@ export function useEditorActorLogic(): EditorActorLogic & {
           applyLatest: fromPromise(applyLatest),
           executeChange: fromPromise(executeChange),
           applySemanticLayout: fromPromise(applySemanticLayout),
+          modelHistory: fromPromise(modelHistory),
         },
       }),
       { isStub },
-    ), [applyLatest, executeChange, applySemanticLayout, isStub])
+    ), [applyLatest, executeChange, applySemanticLayout, modelHistory, isStub])
 }
