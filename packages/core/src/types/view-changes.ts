@@ -85,6 +85,34 @@ export namespace ViewChange {
     title: string
   }
 
+  /**
+   * Add a deployment node.
+   * Written inside the parent node's block, or in the `deployment {}` of the view file when there is no parent.
+   */
+  export interface AddDeploymentNode {
+    op: 'add-deployment-node'
+    parent: scalar.DeploymentFqn | null
+    kind: scalar.DeploymentKind
+    title: string
+    /**
+     * Identifier of the node, derived from the title when omitted
+     */
+    name?: string
+  }
+
+  /**
+   * Deploy a model element as `instanceOf` inside a deployment node
+   */
+  export interface AddInstance {
+    op: 'add-instance'
+    parent: scalar.DeploymentFqn
+    element: scalar.Fqn
+    /**
+     * Identifier of the instance, defaults to the element name (made unique when taken)
+     */
+    name?: string
+  }
+
   export type ExcludeTarget =
     | { node: scalar.Fqn | scalar.DeploymentFqn }
     | { edge: { source: scalar.Fqn | scalar.DeploymentFqn; target: scalar.Fqn | scalar.DeploymentFqn } }
@@ -121,6 +149,8 @@ export type ViewChange =
   | ViewChange.ChangeTitle
   | ViewChange.ExcludeFromView
   | ViewChange.DeleteFromModel
+  | ViewChange.AddDeploymentNode
+  | ViewChange.AddInstance
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
