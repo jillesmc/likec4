@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 8: Dynamic views: add step on connect"
 type: feature
 complexity: medium
@@ -28,9 +28,9 @@ model relation.
 
 ## Subtasks
 
-- [ ] 8.1 Core: `ViewChange.AddDynamicStep`.
-- [ ] 8.2 Server: `addDynamicStep.ts` plus the view-type precondition.
-- [ ] 8.3 Diagram: branch `onConnect` by view type.
+- [x] 8.1 Core: `ViewChange.AddDynamicStep`.
+- [x] 8.2 Server: `addDynamicStep.ts` plus the view-type precondition.
+- [x] 8.3 Diagram: branch `onConnect` by view type.
 
 ## Implementation Details
 
@@ -42,5 +42,21 @@ model relation.
 
 ## Tests
 
-- [ ] UT-045 — `unsupported-in-view`
-- [ ] UT-150, UT-151, UT-152 — step placement
+- [x] UT-045 — `unsupported-in-view`
+- [x] UT-150, UT-151, UT-152 — step placement
+
+## Completion Notes (2026-10-13)
+
+- Server (`addDynamicStep.ts`): writes `source -> target` after the last top-level step (after
+  `parallel`/alt blocks, never inside them), before the first rule when there are no steps, or
+  at the end of the body. No model relation is created. Non-dynamic views are rejected
+  (`unsupported-in-view`). New anchor helpers: `insertAfterNode`, `insertBeforeNode`.
+- Diagram: `resolveConnection(from, to, viewType)` emits `add-dynamic-step` in dynamic views. The
+  `editorAffordances` connect gate covers element and dynamic views, and the sequence variant is
+  excluded (its nodes are not elements). Ghost edges, the error toast and canvas undo/redo cover
+  steps too.
+- E2E fixture gained `dynamic.c4` (`customer.app` / `customer.web` via `extend customer`, dynamic
+  view `flow`). New scenario `US-009: connecting two elements in a dynamic view appends a step`,
+  using `?dynamic=diagram`.
+- Verification: language-server 909 passed; diagram 198 passed; `pnpm typecheck` passed (26 tasks);
+  dev-server E2E 9 passed (2 runs); static-build E2E 2 passed.
