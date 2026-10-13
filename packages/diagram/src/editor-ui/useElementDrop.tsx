@@ -5,8 +5,8 @@ import { type DragEvent, type ReactNode, useState } from 'react'
 import { useCallbackRef } from '../hooks/useCallbackRef'
 import { useXYFlow } from '../hooks/useXYFlow'
 import { innermostNode, modelFqnOf } from './connect'
-import { DropPopover } from './DropPopover'
 import { PALETTE_DRAG_TYPE } from './ElementPalette'
+import { TitlePrompt } from './TitlePrompt'
 
 type PendingDrop = {
   kind: ElementKind
@@ -53,8 +53,10 @@ export function useElementDrop(
   const popover = drop && (
     <ViewportPortal>
       <div style={{ position: 'absolute', transform: `translate(${drop.position.x}px, ${drop.position.y}px)` }}>
-        <DropPopover
-          kind={drop.kind}
+        <TitlePrompt
+          label={`Title of the new ${drop.kind}`}
+          initialTitle={`New ${drop.kind}`}
+          confirmLabel="Add"
           onCancel={() => setDrop(null)}
           onConfirm={title => {
             setDrop(null)

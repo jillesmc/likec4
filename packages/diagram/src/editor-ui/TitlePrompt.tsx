@@ -15,11 +15,12 @@ export function titleKeyAction(key: string, title: string): 'confirm' | 'cancel'
 }
 
 /**
- * Asks the title of the element dropped on the canvas
+ * Inline prompt for a title: Enter confirms a non-empty title, Escape cancels
  */
-export function DropPopover({ kind, initialTitle = `New ${kind}`, onConfirm, onCancel }: {
-  kind: string
-  initialTitle?: string
+export function TitlePrompt({ label, initialTitle, confirmLabel, onConfirm, onCancel }: {
+  label: string
+  initialTitle: string
+  confirmLabel: string
   onConfirm: (title: string) => void
   onCancel: () => void
 }) {
@@ -27,7 +28,7 @@ export function DropPopover({ kind, initialTitle = `New ${kind}`, onConfirm, onC
   const isValid = title.trim().length > 0
   return (
     <div
-      data-likec4-drop-popover
+      data-likec4-title-prompt
       className="nodrag nopan nowheel"
       style={{
         display: 'flex',
@@ -39,19 +40,26 @@ export function DropPopover({ kind, initialTitle = `New ${kind}`, onConfirm, onC
         boxShadow: 'var(--mantine-shadow-md)',
       }}>
       <input
-        aria-label={`Title of the new ${kind}`}
+        aria-label={label}
+        aria-invalid={!isValid}
         autoFocus
         value={title}
         onChange={e => setTitle(e.target.value)}
+        onFocus={e => e.target.select()}
         onKeyDown={e => {
           e.stopPropagation()
           const action = titleKeyAction(e.key, title)
           if (action === 'confirm') onConfirm(title.trim())
           if (action === 'cancel') onCancel()
         }}
-        style={{ width: 180, fontSize: 13, padding: '2px 6px' }}
+        style={{
+          width: 180,
+          fontSize: 13,
+          padding: '2px 6px',
+          outlineColor: isValid ? undefined : 'var(--mantine-color-red-6)',
+        }}
       />
-      <button type="button" disabled={!isValid} onClick={() => onConfirm(title.trim())}>Add</button>
+      <button type="button" disabled={!isValid} onClick={() => onConfirm(title.trim())}>{confirmLabel}</button>
       <button type="button" onClick={onCancel}>Cancel</button>
     </div>
   )

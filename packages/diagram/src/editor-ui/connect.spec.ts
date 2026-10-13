@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { innermostNode, resolveConnection } from './connect'
+import { innermostNode, resolveConnection, titleTargetOf } from './connect'
 
 const node = (modelFqn: string, type = 'element', size = 100) => ({
   type,
@@ -40,5 +40,21 @@ describe('innermostNode', () => {
     const inner = node('cloud.api', 'element', 100)
     expect(innermostNode([outer, inner])).toBe(inner)
     expect(innermostNode([])).toBeNull()
+  })
+})
+
+describe('titleTargetOf', () => {
+  it('uses the model element in element views', () => {
+    expect(titleTargetOf(node('cloud.api'))).toBe('cloud.api')
+  })
+
+  it('uses the deployment element in deployment views', () => {
+    expect(titleTargetOf({ type: 'deployment', data: { deploymentFqn: 'prod.vm', modelFqn: 'cloud.api' } })).toBe(
+      'prod.vm',
+    )
+  })
+
+  it('returns null for other nodes', () => {
+    expect(titleTargetOf({ type: 'view-group', data: {} })).toBeNull()
   })
 })

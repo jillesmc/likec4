@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { DropPopover, titleKeyAction } from './DropPopover'
 import { ElementPalette } from './ElementPalette'
+import { titleKeyAction, TitlePrompt } from './TitlePrompt'
 
 describe('ElementPalette', () => {
   it('UT-070: lists element kinds in the given order', () => {
@@ -17,20 +17,24 @@ describe('ElementPalette', () => {
   })
 })
 
-describe('DropPopover', () => {
+describe('TitlePrompt', () => {
   const noop = () => {}
 
   it('UT-072: disables confirm when the title is empty', () => {
-    const html = renderToStaticMarkup(<DropPopover kind="system" initialTitle="  " onConfirm={noop} onCancel={noop} />)
+    const html = renderToStaticMarkup(
+      <TitlePrompt label="Title" initialTitle="  " confirmLabel="Add" onConfirm={noop} onCancel={noop} />,
+    )
     expect(html).toMatch(/<button type="button" disabled="">Add<\/button>/)
   })
 
-  it('prefills the title with the kind', () => {
-    const html = renderToStaticMarkup(<DropPopover kind="system" onConfirm={noop} onCancel={noop} />)
+  it('prefills the title', () => {
+    const html = renderToStaticMarkup(
+      <TitlePrompt label="Title" initialTitle="New system" confirmLabel="Add" onConfirm={noop} onCancel={noop} />,
+    )
     expect(html).toContain('value="New system"')
   })
 
-  it('UT-072: Escape cancels, Enter confirms only a non-empty title', () => {
+  it('UT-072 + US-003 EC-2: Escape cancels, Enter confirms only a non-empty title', () => {
     expect(titleKeyAction('Escape', 'Billing')).toBe('cancel')
     expect(titleKeyAction('Enter', 'Billing')).toBe('confirm')
     expect(titleKeyAction('Enter', '   ')).toBeNull()

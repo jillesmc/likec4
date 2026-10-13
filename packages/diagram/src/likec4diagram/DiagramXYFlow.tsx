@@ -21,7 +21,7 @@ import { IS_SERVER } from '../base/const'
 import { useDiagramEventHandlers } from '../context'
 import { useOptionalLikeC4Model } from '../context/LikeC4ModelContext'
 import { useRootContainer } from '../context/RootContainerContext'
-import { ElementPalette, Ghosts, innermostNode, resolveConnection, useElementDrop } from '../editor-ui'
+import { ElementPalette, Ghosts, innermostNode, resolveConnection, useElementDrop, useTitleEditing } from '../editor-ui'
 import {
   selectDiagramSnapshot,
   useCallbackRef,
@@ -123,11 +123,14 @@ const selectXYProps = selectDiagramSnapshot(({ context: ctx, children }) => {
 
   // Connecting nodes creates relations, only in element views
   const nodesConnectable = !enableReadOnly && !isGraphVariant && ctx.view._type === 'element'
+  // Titles can be edited in element and deployment views
+  const titlesEditable = !enableReadOnly && !isGraphVariant && ctx.view._type !== 'dynamic'
 
   return ({
     enableReadOnly,
     isGraphVariant,
     nodesConnectable,
+    titlesEditable,
     // During SSR, consider initialized as true to avoid flashing
     initialized: IS_SERVER || (ctx.initialized.xydata && ctx.initialized.xyflow),
     nodes: ctx.xynodes,
@@ -177,6 +180,7 @@ export function LikeC4DiagramXYFlow({
     enableReadOnly,
     isGraphVariant,
     nodesConnectable,
+    titlesEditable,
     initialized,
     nodes,
     edges,
@@ -192,6 +196,9 @@ export function LikeC4DiagramXYFlow({
   const elementKinds = likec4model
     ? keys(likec4model.specification.elements).map(kind => kind as ElementKind)
     : null
+  const titleEditing = useTitleEditing(change => {
+    diagram.editorActor().send({ type: 'change.view', change })
+  })
   const elementDrop = useElementDrop(elementKinds ?? [], (change, position) => {
     diagram.editorActor().send({ type: 'change.view', change, position })
   })
@@ -310,6 +317,9 @@ export function LikeC4DiagramXYFlow({
         })
       })}
       nodesConnectable={nodesConnectable}
+      {...titlesEditable && {
+        onNodeDoubleClick: titleEditing.onNodeDoubleClick,
+      }}
       {...nodesConnectable && elementKinds && {
         onDragOver: elementDrop.onDragOver,
         onDrop: elementDrop.onDrop,
@@ -406,6 +416,7 @@ export function LikeC4DiagramXYFlow({
         </Panel>
       )}
       {nodesConnectable && elementDrop.popover}
+      {titlesEditable && titleEditing.editor}
       {children}
     </BaseXYFlow>
   )

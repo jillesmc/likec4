@@ -1,4 +1,4 @@
-import { type ViewChange, Fqn } from '@likec4/core/types'
+import { type ViewChange, DeploymentFqn, Fqn } from '@likec4/core/types'
 
 /**
  * Minimal node shape used to resolve connections (works with xyflow nodes and internal nodes)
@@ -50,4 +50,14 @@ export function innermostNode<N extends ConnectableNode>(nodes: readonly N[]): N
     }
   }
   return result
+}
+
+/**
+ * Target of a title change: the deployment element in deployment views, otherwise the model element
+ */
+export function titleTargetOf(node: ConnectableNode): Fqn | DeploymentFqn | null {
+  if ('deploymentFqn' in node.data && typeof node.data.deploymentFqn === 'string') {
+    return DeploymentFqn(node.data.deploymentFqn)
+  }
+  return modelFqnOf(node)
 }
