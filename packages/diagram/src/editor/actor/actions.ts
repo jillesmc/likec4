@@ -6,7 +6,7 @@ import type { DiagramContext } from '../../likec4diagram/state/types'
 import { typedSystem } from '../../likec4diagram/state/utils'
 import type { Types } from '../../likec4diagram/types'
 import { machine } from './setup'
-import type { Snapshot, SyncOp } from './types'
+import { type Snapshot, type SyncOp, isGhostChange } from './types'
 
 /**
  * Actually this is DiagramActorRef
@@ -268,6 +268,32 @@ export const pushToSyncQueue = () =>
     }
     return {
       syncQueue: newQueue,
+    }
+  })
+
+/**
+ * Render changes that create new items as ghosts, until the view is synced
+ */
+export const addGhost = () =>
+  machine.assign(({ context: { ghosts }, event }) => {
+    if (event.type !== 'change.view' || !isGhostChange(event.change)) {
+      return {}
+    }
+    return {
+      ghosts: [...ghosts, event.change],
+    }
+  })
+
+/**
+ * Keep only ghosts of changes that are still waiting to be executed
+ */
+export const settleGhosts = () =>
+  machine.assign(({ context: { ghosts, syncQueue, processing } }) => {
+    if (ghosts.length === 0) {
+      return {}
+    }
+    return {
+      ghosts: ghosts.filter(ghost => ghost === processing || syncQueue.includes(ghost)),
     }
   })
 

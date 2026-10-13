@@ -3,6 +3,7 @@ import { useRerender } from '@react-hookz/web'
 import { memo, useCallback } from 'react'
 import { ErrorBoundary } from '../components/ErrorFallback'
 import { useEnabledFeatures } from '../context/DiagramFeatures'
+import { EditorErrorNotification } from '../editor-ui'
 import { selectDiagramSnapshot, useDiagramSelector } from '../hooks'
 import { NavigationPanel } from '../navigationpanel'
 import { Overlays } from '../overlays/Overlays'
@@ -57,6 +58,7 @@ export function LikeC4DiagramUI() {
       {enableSearch && actors.search && <Search searchActorRef={actors.search} />}
       {enableRelationshipDetails && enableReadOnly && <RelationshipPopover />}
       {enableCompareWithLatest && <LayoutDriftFrame />}
+      {!enableReadOnly && <EditorErrorNotification />}
     </ErrorBoundary>
   )
 }

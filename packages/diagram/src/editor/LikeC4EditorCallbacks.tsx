@@ -45,6 +45,9 @@ export interface LikeC4EditorCallbacks {
    * Return `{ waitForViewSync: false }` when the integration applies the
    * change locally and will not publish a refreshed view. When changes are
    * batched, the editor waits if any callback invocation expects a refresh.
+   *
+   * Must reject (throw) when the change was not applied:
+   * the error message is shown to the user, and pending items of the change are removed.
    */
   handleChange(
     viewId: t.ViewId,

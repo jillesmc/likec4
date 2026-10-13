@@ -1,7 +1,7 @@
 import { useDebouncedState } from '@mantine/hooks'
 import { useEffect, useState } from 'react'
 import type { EditorActorRef } from '../editor/actor/machine'
-import type { EditorActorStateTag } from '../editor/actor/types'
+import type { EditorActorContext, EditorActorStateTag } from '../editor/actor/types'
 import { selectDiagramSnapshot, useDiagramSelector } from './useDiagram'
 
 const select = selectDiagramSnapshot(
@@ -45,4 +45,23 @@ export function useEditorIsBusy() {
     }
   }, [editorActor, setIsBusy])
   return isBusy
+}
+
+/**
+ * Select a value from the editor actor context, or `fallback` when there is no editor
+ */
+export function useEditorActorContext<T>(selector: (context: EditorActorContext) => T, fallback: T): T {
+  const editorActor = useEditorActorRef()
+  const [value, setValue] = useState(() => {
+    const snapshot = editorActor?.getSnapshot()
+    return snapshot ? selector(snapshot.context) : fallback
+  })
+  useEffect(() => {
+    const subscription = editorActor?.select(s => selector(s.context)).subscribe(setValue)
+    return () => {
+      subscription?.unsubscribe()
+      setValue(fallback)
+    }
+  }, [editorActor])
+  return value
 }

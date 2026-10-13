@@ -3,6 +3,7 @@ import { findLast } from 'remeda'
 import { assign, enqueueActions, log, sendTo } from 'xstate'
 import { typedSystem } from '../../likec4diagram/state/utils'
 import {
+  addGhost,
   cancelSync,
   clearQueue,
   deleteNodesAndEdges,
@@ -10,6 +11,7 @@ import {
   pushToSyncQueue,
   redo,
   scheduleSync,
+  settleGhosts,
   undo,
 } from './actions'
 import { machine } from './setup'
@@ -42,7 +44,7 @@ const idle = machine.createStateConfig({
       ...to.pending,
     },
     'change.*': {
-      actions: pushToSyncQueue(),
+      actions: [pushToSyncQueue(), addGhost()],
       ...to.process,
     },
     'undo': {
@@ -75,7 +77,7 @@ const pending = machine.createStateConfig({
     },
     // All other changes route to process
     'change.*': {
-      actions: pushToSyncQueue(),
+      actions: [pushToSyncQueue(), addGhost()],
       ...to.process,
     },
     'delete.nodes-edges': {
@@ -300,6 +302,14 @@ const process = machine.createStateConfig({
               processing: null,
               syncQueue: context.syncQueue.filter(change => !isViewChange(change) || !requested.includes(change)),
             })
+            const failed = event.output.failed
+            if (failed.length > 0) {
+              const failedChanges = failed.map(f => f.change)
+              enqueue.assign({
+                ghosts: context.ghosts.filter(ghost => !failedChanges.includes(ghost)),
+                lastError: failed.map(f => f.error).join('\n'),
+              })
+            }
 
             const lastSyncSnapshot = findLast(
               event.output.applied,
@@ -343,7 +353,7 @@ const process = machine.createStateConfig({
     },
 
     decideNext: {
-      entry: assign(clearProcessing),
+      entry: [assign(clearProcessing), settleGhosts()],
       always: [
         // If there are pending operations, enter the process state
         {
@@ -358,12 +368,16 @@ const process = machine.createStateConfig({
 
     failure: {
       always: {
-        actions: clearQueue(),
+        actions: [clearQueue(), settleGhosts()],
         ...to.idle,
       },
     },
   },
   on: {
+    // Queue view changes while processing, they are executed next
+    'change.view': {
+      actions: [pushToSyncQueue(), addGhost()],
+    },
     // 'change.*': {
     //   actions: log(({ event }) => `ignore ${event.type} in process state`),
     // },
@@ -384,5 +398,9 @@ export const syncQueue = machine.createStateConfig({
     suspended,
     process,
   },
-  on: {},
+  on: {
+    'error.dismiss': {
+      actions: assign({ lastError: null }),
+    },
+  },
 })

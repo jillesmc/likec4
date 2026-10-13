@@ -12,6 +12,8 @@ export type EditorActorEvent =
   // view update has been received, consider synced
   | { type: 'view.synched' }
   | { type: 'cancel' }
+  // Dismiss the last error
+  | { type: 'error.dismiss' }
   // Edit events
   | { type: 'edit.move.start'; subject: 'node' | 'edge' }
   | { type: 'edit.move.end' }
@@ -43,6 +45,13 @@ export type SyncOp =
 export const isViewChange = (change: SyncOp | null): change is t.ViewChange =>
   change !== null && typeof change !== 'string'
 
+/**
+ * Changes rendered as pending items (ghosts) until the view is synced
+ */
+export type GhostChange = t.ViewChange.AddRelation
+
+export const isGhostChange = (change: t.ViewChange): change is GhostChange => change.op === 'add-relation'
+
 export interface EditorActorContext {
   viewId: t.ViewId
 
@@ -65,6 +74,16 @@ export interface EditorActorContext {
 
   syncQueue: Array<SyncOp>
   processing: Exclude<SyncOp, 'sync-snapshot'> | null
+
+  /**
+   * Changes not yet visible in the view (rendered as ghosts)
+   */
+  ghosts: GhostChange[]
+
+  /**
+   * Error of the last rejected change, shown to the user until dismissed
+   */
+  lastError: string | null
 }
 
 export type EditorActorEmitedEvent = { type: 'idle' }

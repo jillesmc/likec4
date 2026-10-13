@@ -20,6 +20,7 @@ import { BaseXYFlow } from '../base/BaseXYFlow'
 import { IS_SERVER } from '../base/const'
 import { useDiagramEventHandlers } from '../context'
 import { useRootContainer } from '../context/RootContainerContext'
+import { GhostEdges, innermostNode, resolveConnection } from '../editor-ui'
 import {
   selectDiagramSnapshot,
   useCallbackRef,
@@ -29,6 +30,7 @@ import {
 import { useDiagram } from '../hooks/useDiagram'
 import { useEditorActorStateHasTag } from '../hooks/useEditorActor'
 import { depsShallowEqual } from '../hooks/useUpdateEffect'
+import { useXYFlow } from '../hooks/useXYFlow'
 import type { LikeC4DiagramProperties, NodeRenderers, ViewPaddings } from '../LikeC4Diagram.props'
 import { BuiltinEdges, BuiltinNodes } from './custom'
 import { deriveToggledFeatures } from './state/machine.setup'
@@ -118,9 +120,13 @@ const selectXYProps = selectDiagramSnapshot(({ context: ctx, children }) => {
     nodesDraggable = ctx.nodesDraggable
   }
 
+  // Connecting nodes creates relations, only in element views
+  const nodesConnectable = !enableReadOnly && !isGraphVariant && ctx.view._type === 'element'
+
   return ({
     enableReadOnly,
     isGraphVariant,
+    nodesConnectable,
     // During SSR, consider initialized as true to avoid flashing
     initialized: IS_SERVER || (ctx.initialized.xydata && ctx.initialized.xyflow),
     nodes: ctx.xynodes,
@@ -164,9 +170,11 @@ export function LikeC4DiagramXYFlow({
     ...safeReactFlowProps
   } = reactFlowProps
   const diagram = useDiagram()
+  const xyflow = useXYFlow()
   let {
     enableReadOnly,
     isGraphVariant,
+    nodesConnectable,
     initialized,
     nodes,
     edges,
@@ -291,6 +299,25 @@ export function LikeC4DiagramXYFlow({
           edgeIds: edges.map(edge => edge.data.id),
         })
       })}
+      nodesConnectable={nodesConnectable}
+      onConnectEnd={useCallbackRef((event, connection) => {
+        if (!nodesConnectable || !connection.fromNode) {
+          return
+        }
+        // Released outside a handle: take the innermost node under the pointer
+        const pointer = 'changedTouches' in event ? event.changedTouches[0] : event
+        const toNode = connection.toNode ?? (pointer
+          ? innermostNode(xyflow.getIntersectingNodes({
+            ...xyflow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY }),
+            width: 1,
+            height: 1,
+          }))
+          : null)
+        const change = resolveConnection(connection.fromNode, toNode)
+        if (change) {
+          diagram.editorActor().send({ type: 'change.view', change })
+        }
+      })}
       onPaneClick={useCallbackRef((e) => {
         e.stopPropagation()
         diagram.send({ type: 'xyflow.paneClick' })
@@ -358,6 +385,7 @@ export function LikeC4DiagramXYFlow({
           maxZoom={props.maxZoom}
         />
       )}
+      {nodesConnectable && <GhostEdges />}
       {children}
     </BaseXYFlow>
   )

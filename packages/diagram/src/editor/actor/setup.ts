@@ -48,6 +48,10 @@ export namespace EditorCalls {
     export type Output = {
       requested: t.ViewChange[]
       applied: t.ViewChange[]
+      /**
+       * Changes rejected by the editor port, with the error message
+       */
+      failed: Array<{ change: t.ViewChange; error: string }>
       waitForViewSync: boolean
     }
   }

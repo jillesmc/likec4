@@ -47,6 +47,7 @@ export function useEditorActorLogic(): EditorActorLogic & {
         console.debug('Executing change', { input })
       }
       const applied = [] as typeof input.changes
+      const failed = [] as Array<{ change: (typeof input.changes)[number]; error: string }>
       let waitForViewSync = false
       for (const change of input.changes) {
         try {
@@ -55,10 +56,11 @@ export function useEditorActorLogic(): EditorActorLogic & {
           waitForViewSync ||= shouldWaitForViewSync(result)
         } catch (error) {
           console.error('Failed to execute change', { change, error })
+          failed.push({ change, error: error instanceof Error ? error.message : String(error) })
           waitForViewSync ||= shouldWaitForViewSync()
         }
       }
-      return { requested: input.changes, applied, waitForViewSync }
+      return { requested: input.changes, applied, failed, waitForViewSync }
     },
   )
 
