@@ -1,0 +1,11 @@
+model {
+  extend customer {
+    app = actor 'App'
+    web = actor 'Web'
+  }
+}
+views {
+  dynamic view flow {
+    include customer.app, customer.web
+  }
+}

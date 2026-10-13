@@ -209,3 +209,28 @@ test('US-007 + US-008: deployment view palette creates nodes and instances', asy
   )
   await expect(page.locator('.react-flow__node[data-id="prod.worker.customer"]')).toBeVisible({ timeout: 10_000 })
 })
+
+test('US-009: connecting two elements in a dynamic view appends a step', async ({ page }) => {
+  await page.goto('/view/flow/?dynamic=diagram')
+  const app = page.locator('.react-flow__node[data-id="customer.app"]')
+  const web = page.locator('.react-flow__node[data-id="customer.web"]')
+  await expect(app).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await app.hover()
+  const handle = app.locator('.react-flow__handle.source')
+  await expect(handle).toBeVisible()
+  const from = (await handle.boundingBox())!
+  const to = (await web.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+  await page.mouse.up()
+
+  await expect.poll(() => readServed('dynamic.c4'), { timeout: 10_000 }).toContain(
+    `  dynamic view flow {\n    customer.app -> customer.web\n    include customer.app, customer.web\n  }`,
+  )
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
+  // No model relation is created
+  expect(await readServed()).not.toContain('-> customer.web')
+})
