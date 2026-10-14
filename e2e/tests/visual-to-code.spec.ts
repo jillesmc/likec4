@@ -234,3 +234,72 @@ test('US-009: connecting two elements in a dynamic view appends a step', async (
   // No model relation is created
   expect(await readServed()).not.toContain('-> customer.web')
 })
+
+test('review 005: undo of an element dropped in a manual layout view leaves no drift', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  const box = (await customer.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect.poll(() => hasManualLayout('index'), { timeout: 10_000 }).toBe(true)
+
+  const pane = page.locator('.react-flow__pane')
+  const paneBox = (await pane.boundingBox())!
+  await page.locator('[data-likec4-palette-kind="system"]').dragTo(pane, {
+    targetPosition: { x: 200, y: paneBox.height - 150 },
+  })
+  const input = page.getByLabel('Title of the new system')
+  await input.fill('Billing')
+  await input.press('Enter')
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).toContain(`id: 'billing'`)
+
+  await page.locator('.react-flow__pane').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).not.toContain(`billing = system`)
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).not.toContain(`id: 'billing'`)
+  await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+})
+
+test('review 008: a relation without label can be deleted from the model', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const handle = customer.locator('.react-flow__handle.source')
+  const from = (await handle.boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+  await page.mouse.up()
+  const edge = page.locator('.react-flow__edge')
+  await expect(edge).toHaveCount(1, { timeout: 10_000 })
+
+  await edge.locator('path').first().click({ force: true })
+  await page.getByRole('button', { name: 'Delete from model' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
+  await expect.poll(() => readServed(), { timeout: 10_000 }).not.toContain('-> cloud')
+  await expect(edge).toHaveCount(0, { timeout: 10_000 })
+})
+
+test('review 009: dropping "Instance" outside a deployment node shows a message', async ({ page }) => {
+  await page.goto('/view/prod/')
+  await expect(page.locator('.react-flow__node[data-id="prod"]')).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  const pane = page.locator('.react-flow__pane')
+  const paneBox = (await pane.boundingBox())!
+  // empty canvas, away from panels (top-left) and the palette (right)
+  await page.locator('[data-likec4-palette-kind="@instance"]').dragTo(pane, {
+    targetPosition: { x: paneBox.width / 2, y: 40 },
+  })
+  await expect(page.getByRole('alert')).toContainText('Drop "Instance" on a deployment node')
+})
