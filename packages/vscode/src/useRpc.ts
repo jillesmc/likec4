@@ -134,6 +134,8 @@ export const useRpc = defineService(() => {
       }
       return {
         location: res.location ? client.protocol2CodeConverter.asLocation(res.location) : null,
+        // All documents modified by the change (e.g. relation and view include are in different files)
+        modifiedUris: (res.modifiedUris ?? []).map(uri => client.protocol2CodeConverter.asUri(uri)),
         success: res.success,
       }
     },

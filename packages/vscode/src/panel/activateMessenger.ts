@@ -150,7 +150,11 @@ export function activateMessenger() {
         location,
         preserveFocus: true,
       })
-      await vscode.workspace.save(location.uri)
+      // Save every modified document, not only the revealed one
+      const toSave = new Map([location.uri, ...result.modifiedUris].map(uri => [uri.toString(), uri]))
+      for (const uri of toSave.values()) {
+        await vscode.workspace.save(uri)
+      }
       return {
         success: true,
       }
