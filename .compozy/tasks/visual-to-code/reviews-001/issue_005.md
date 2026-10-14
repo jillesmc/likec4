@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/diagram/src/editor/actor/state.sync-queue.ts
 line: 357
 severity: medium
@@ -21,5 +21,6 @@ Suggested fix: set `refreshManualLayout: true` in `modelHistory.onDone`, so `set
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. `modelHistory.onDone` does not set `refreshManualLayout`, so undo/redo in a manual-layout view leaves a stale snapshot. Fix: set the flag on done, so `settleGhosts` runs `latest-to-manual` in manual views. Actor spec.
+- Fix: Fixed: `modelHistory.onDone` sets `refreshManualLayout`, so the manual layout is refreshed after undo/redo. Verified by E2E 'review 005: undo of an element dropped in a manual layout view leaves no drift'. Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

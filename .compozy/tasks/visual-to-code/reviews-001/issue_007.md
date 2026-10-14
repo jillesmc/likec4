@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/vscode/src/panel/activateMessenger.ts
 line: 153
 severity: medium
@@ -21,5 +21,6 @@ Suggested fix: return all touched URIs from `ChangeView` (e.g. `locations: Locat
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. The extension saves only `location.uri`. Fix: `ChangeView.Res` success carries `modifiedUris` (all touched documents of the plan); `activateMessenger.ts` saves each of them. The legacy single-file ops are unaffected.
+- Fix: Fixed: `ChangeView.Res.modifiedUris` lists all touched documents; `useRpc.changeView` converts them, and `activateMessenger.ts` saves each one. The server side is verified by `addRelation.spec.ts` IT-002 (two uris). The VSCode save loop was typechecked but not exercised in VSCode. Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

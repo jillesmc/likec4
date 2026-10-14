@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/language-server/src/model-change/ModelChanges.ts
 line: 174
 severity: medium
@@ -21,5 +21,6 @@ Suggested fix: when there is no LSP connection, also record the text edits appli
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. View-level text edits (`change-element-style`, `change-autolayout`, `change-property`) are not recorded, so the next model undo is stale and clears the whole history. Fix: record them in the server history too (no LSP), and count them as undoable on the canvas, which makes style/autolayout/property changes undoable with Ctrl+Z as well. On a stale entry, drop only that entry instead of the whole history. Specs: style change then undo; stale entry keeps older ones.
+- Fix: Fixed: view text edits (`change-element-style`, `change-autolayout`, `change-property`) go through `applyRecorded()` and get a history id; the canvas counts them as undoable (`isModelChange`). A stale entry is dropped alone and older entries stay. Verified by `undo.spec.ts` (issue 003 cases). Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

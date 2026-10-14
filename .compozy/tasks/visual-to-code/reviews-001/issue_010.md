@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/diagram/src/likec4diagram/custom/edges/RelationshipEdge.tsx
 line: 68
 severity: medium
@@ -21,5 +21,6 @@ Suggested fix: compute the relations only when needed, e.g. `const edgeRelations
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. `findDiagramEdge` (linear scan) runs on every render of every edge in edit mode. Fix: compute the relations only when the edge is selected.
+- Fix: Fixed: the relations are looked up only when the edge is selected. Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

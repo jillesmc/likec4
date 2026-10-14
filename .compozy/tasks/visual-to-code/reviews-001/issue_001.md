@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/language-server/src/model-change/ModelChanges.ts
 line: 449
 severity: high
@@ -26,5 +26,6 @@ Suggested fix: make `revert()` return the `ApplyEditsResult` (or throw). In `res
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. `revert()` logs and returns void when `applyWorkspaceEdits` fails; `restore()` then reports success and `applyPlan()` reports "Change reverted". Root cause: the result of the revert is dropped. Fix: `revert()` returns the apply result. `restore()` puts the entry back and returns `apply-failed`; the guard reports that the change could not be reverted. Spec: write failure during undo and during the guard revert.
+- Fix: Fixed: `revert()` returns the apply result. The FS write loop now returns `applied: false` on write errors instead of throwing. `restore()` puts the entry back and returns `apply-failed`, and the guard returns `apply-failed` ('could not be reverted') instead of claiming the change was reverted. Verified by `undo.spec.ts` (issue 001 cases). Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/diagram/src/likec4diagram/custom/edges/RelationshipEdge.tsx
 line: 341
 severity: medium
@@ -21,5 +21,6 @@ Suggested fix: render the button for selected, deletable edges independently of 
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. The relation delete button lives inside `EdgeLabel`, which is absent for unlabeled edges (all canvas-created relations). Fix: when the edge has no label, render the button through `EdgeLabelRenderer` at the label position the edge already computes. E2E: connect, select edge, delete from model.
+- Fix: Fixed: for unlabeled edges, the button is rendered through `EdgeLabelContainer` at the middle point of the edge, wrapped with `pointerEvents: 'all'`. Verified by E2E 'review 008: a relation without label can be deleted from the model'. Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/language-server/src/model-change/ModelChanges.ts
 line: 357
 severity: medium
@@ -21,5 +21,6 @@ Suggested fix: return an identifier for the recorded entry in `ChangeView.Res` (
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. The server stack is per project, but the canvas history is per tab, so Ctrl+Z can revert another client's change. Fix: every recorded entry gets a `historyId`, returned in `ChangeView.Res` and `updateView`, carried through `LikeC4EditorChangeResult.historyId` into the canvas model entry. Undo/redo send the id, and the server refuses (`stale-undo`) when it is not the top entry. Specs on server and actor.
+- Fix: Fixed: each recorded entry has an id, returned as `historyId` in `ChangeView.Res` / `updateView`. The canvas stores it in the model history entry and sends it on undo/redo (`undoModelChange(viewId, historyId)`), and the server refuses with `stale-undo` when it is not the latest entry. Verified by `undo.spec.ts` (issue 004) and `state.sync-queue.spec.ts` (history ids sent in order). Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.

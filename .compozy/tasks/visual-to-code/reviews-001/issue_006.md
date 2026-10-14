@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-13T21:56:39Z
-status: pending
+status: valid
 file: packages/language-server/src/model-change/excludeFromView.ts
 line: 7
 severity: medium
@@ -23,5 +23,6 @@ Suggested fix: validate every exclude target before writing: nodes via `model.fi
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid. Exclude targets are written without validation, and `kind in spec` accepts inherited keys. Fix: validate each target (element / deployment element exists, matching the view type) before writing; use `Object.hasOwn` for kinds. Specs: unknown target, inherited key as kind.
+- Fix: Fixed: `excludeFromView` validates every target (element or deployment element, according to the view type), and kinds use `Object.hasOwn`. Verified by `excludeAndDelete.spec.ts` and `addElement.spec.ts` (issue 006 cases). Gates: `pnpm typecheck` passed (26 tasks); language-server 919 passed; diagram 200 passed; vite-plugin 40 passed + the pre-existing `detect-ai` failure; dev-server E2E 12 passed (2 runs); static-build E2E 2 passed.
