@@ -1,4 +1,4 @@
-import { invariant } from '@likec4/core'
+import { invariant, nonNullable } from '@likec4/core'
 import { findLast } from 'remeda'
 import { assign, enqueueActions, log, sendTo } from 'xstate'
 import { typedSystem } from '../../likec4diagram/state/utils'
@@ -14,7 +14,7 @@ import {
   undo,
 } from './actions'
 import { machine } from './setup'
-import { isViewChange, withoutModelEntries } from './types'
+import { isViewChange, modelHistoryOp, withoutModelEntries } from './types'
 
 const to = {
   idle: { target: '#queue-idle' },
@@ -164,7 +164,7 @@ const process = machine.createStateConfig({
           target: 'applySemanticLayout',
         },
         {
-          guard: ({ context: { processing } }) => processing === 'undo-model' || processing === 'redo-model',
+          guard: ({ context: { processing } }) => modelHistoryOp(processing) !== null,
           target: 'modelHistory',
         },
         {
@@ -190,7 +190,7 @@ const process = machine.createStateConfig({
       entry: assign(({ system }) => ({
         processing: makeSnapshot(system).change,
       })),
-      exit: assign({ pendingPlacement: null }),
+      exit: assign({ pendingPlacements: [] }),
       states: {
         // Fetch latest and manual layouts
         // Apply changes, send update to diagram
@@ -203,7 +203,7 @@ const process = machine.createStateConfig({
               return ({
                 current: current.layout,
                 viewId: context.viewId,
-                placement: context.pendingPlacement,
+                placements: context.pendingPlacements,
               })
             },
             onDone: {
@@ -301,11 +301,21 @@ const process = machine.createStateConfig({
             })
             // Applied model changes can be undone through the editor port
             let history = context.history
-            for (let i = 0; i < event.output.undoable; i++) {
-              history = { head: { kind: 'model' }, tail: history }
+            for (const historyId of event.output.undoable) {
+              history = { head: { kind: 'model', historyId }, tail: history }
             }
             if (history !== context.history) {
               enqueue.assign({ history, redo: null })
+            }
+            // Remember created items, to keep them where they were dropped
+            const created = event.output.created
+            if (created.length > 0) {
+              enqueue.assign({
+                ghosts: context.ghosts.map(ghost => {
+                  const createdId = created.find(c => c.change === ghost.change)?.id
+                  return createdId ? { ...ghost, createdId } : ghost
+                }),
+              })
             }
             const failed = event.output.failed
             if (failed.length > 0) {
@@ -352,9 +362,11 @@ const process = machine.createStateConfig({
         src: 'modelHistory',
         input: ({ context: { processing, viewId } }) => ({
           viewId,
-          direction: processing === 'redo-model' ? 'redo' : 'undo',
+          ...nonNullable(modelHistoryOp(processing), 'processing must be a model history op'),
         }),
         onDone: {
+          // The manual layout is refreshed once the view is synced (items may appear or disappear)
+          actions: assign({ refreshManualLayout: true }),
           target: 'waitViewSynced',
         },
         onError: {
@@ -446,6 +458,9 @@ export const syncQueue = machine.createStateConfig({
   on: {
     'error.dismiss': {
       actions: assign({ lastError: null }),
+    },
+    'error.show': {
+      actions: assign(({ event }) => ({ lastError: event.message })),
     },
   },
 })

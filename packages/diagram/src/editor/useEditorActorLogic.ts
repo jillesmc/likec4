@@ -5,7 +5,7 @@ import { useCallbackRef } from '../hooks'
 import { type EditorActorLogic, editorActorLogic } from './actor/machine'
 import type { EditorCalls } from './actor/setup'
 import { isModelChange } from './actor/types'
-import { applyChangesToManualLayout, placeNewNode } from './applyChangesToManualLayout'
+import { applyChangesToManualLayout, placeNewNodes } from './applyChangesToManualLayout'
 import { shouldWaitForViewSync } from './LikeC4EditorCallbacks'
 import { useOptionalLikeC4Editor } from './LikeC4EditorProvider'
 
@@ -24,7 +24,7 @@ export function useEditorActorLogic(): EditorActorLogic & {
   const isStub = isNullish(port)
 
   const applyLatest: EditorCalls.ApplyLatestToManual = useCallbackRef(
-    async ({ input: { viewId, current, placement } }) => {
+    async ({ input: { viewId, current, placements } }) => {
       if (!port) {
         console.error('No editor port available for applying latest to manual layout')
         throw new Error('No editor port')
@@ -32,8 +32,8 @@ export function useEditorActorLogic(): EditorActorLogic & {
       const manual = await promisify(() => current ?? port.fetchView(viewId, 'manual'))
       const latest = await promisify(() => port.fetchView(viewId, 'auto'))
       let updated = applyChangesToManualLayout(manual, latest)
-      if (placement) {
-        updated = placeNewNode(manual, updated, placement)
+      if (placements && placements.length > 0) {
+        updated = placeNewNodes(manual, updated, placements)
       }
       return {
         updated,
@@ -52,7 +52,8 @@ export function useEditorActorLogic(): EditorActorLogic & {
       }
       const applied = [] as typeof input.changes
       const failed = [] as Array<{ change: (typeof input.changes)[number]; error: string }>
-      let undoable = 0
+      const undoable = [] as Array<string | undefined>
+      const created = [] as Array<{ change: (typeof input.changes)[number]; id: string }>
       let waitForViewSync = false
       for (const change of input.changes) {
         try {
@@ -60,7 +61,10 @@ export function useEditorActorLogic(): EditorActorLogic & {
           applied.push(change)
           waitForViewSync ||= shouldWaitForViewSync(result)
           if (port.undoModelChange && isModelChange(change)) {
-            undoable++
+            undoable.push(result?.historyId)
+          }
+          if (result?.created) {
+            created.push({ change, id: result.created })
           }
         } catch (error) {
           console.error('Failed to execute change', { change, error })
@@ -68,17 +72,17 @@ export function useEditorActorLogic(): EditorActorLogic & {
           waitForViewSync ||= shouldWaitForViewSync()
         }
       }
-      return { requested: input.changes, applied, failed, undoable, waitForViewSync }
+      return { requested: input.changes, applied, failed, undoable, created, waitForViewSync }
     },
   )
 
   const modelHistory: EditorCalls.ModelHistory = useCallbackRef(
-    async ({ input: { viewId, direction } }) => {
+    async ({ input: { viewId, direction, historyId } }) => {
       const fn = direction === 'undo' ? port?.undoModelChange : port?.redoModelChange
       if (!fn) {
         throw new Error(`${direction} of model changes is not available`)
       }
-      await fn(viewId)
+      await fn(viewId, historyId)
       return {}
     },
   )

@@ -12,7 +12,15 @@ export interface LikeC4EditorChangeResult {
    * preserving the existing behavior for integrations that persist changes
    * through an external model service.
    */
-  waitForViewSync: boolean
+  waitForViewSync?: boolean | undefined
+  /**
+   * Id of the change in the undo history of the host (see {@link LikeC4EditorCallbacks.undoModelChange})
+   */
+  historyId?: string | undefined
+  /**
+   * Fqn of the item created by the change (used to keep it where it was dropped)
+   */
+  created?: string | undefined
 }
 
 export function shouldWaitForViewSync(
@@ -59,12 +67,12 @@ export interface LikeC4EditorCallbacks {
    * When provided, model changes join the canvas undo history.
    * Must reject when the change can not be reverted (e.g. file changed since the edit).
    */
-  undoModelChange?: undefined | ((viewId: t.ViewId) => Promise<void>)
+  undoModelChange?: undefined | ((viewId: t.ViewId, historyId?: string) => Promise<void>)
 
   /**
    * Re-apply the latest reverted model change (Ctrl+Shift+Z on the canvas)
    */
-  redoModelChange?: undefined | ((viewId: t.ViewId) => Promise<void>)
+  redoModelChange?: undefined | ((viewId: t.ViewId, historyId?: string) => Promise<void>)
 }
 
 export function createLikeC4Editor(callbacks: LikeC4EditorCallbacks): LikeC4EditorCallbacks {

@@ -11,8 +11,10 @@ export type EditorActorEvent =
   | { type: 'change.latest-to-manual' }
   | { type: 'change.sync-snapshot' }
   // Undo / redo of a model change (raised by undo / redo)
-  | { type: 'change.undo-model' }
-  | { type: 'change.redo-model' }
+  | { type: 'change.undo-model'; historyId?: string | undefined }
+  | { type: 'change.redo-model'; historyId?: string | undefined }
+  // Show an error to the user
+  | { type: 'error.show'; message: string }
   // view update has been received, consider synced
   | { type: 'view.synched' }
   | { type: 'cancel' }
@@ -34,7 +36,13 @@ export type Snapshot = {
 /**
  * Model change in the history, reverted / re-applied by the editor port
  */
-export type ModelHistoryEntry = { kind: 'model' }
+export type ModelHistoryEntry = {
+  kind: 'model'
+  /**
+   * Id of the change in the host history
+   */
+  historyId?: string | undefined
+}
 
 export type HistoryEntry = Snapshot | ModelHistoryEntry
 
@@ -78,8 +86,8 @@ export type SyncOp =
   | 'sync-snapshot'
   | 'apply-semantic-layout'
   | 'apply-latest-to-manual'
-  | 'undo-model'
-  | 'redo-model'
+  | `undo-model:${string}`
+  | `redo-model:${string}`
 
 export const isViewChange = (change: SyncOp | null): change is t.ViewChange =>
   change !== null && typeof change !== 'string'
@@ -101,8 +109,34 @@ export const isGhostChange = (change: t.ViewChange): change is GhostChange =>
   || change.op === 'add-instance'
   || change.op === 'add-dynamic-step'
 
+/**
+ * Where an item created on the canvas was dropped (center, flow coordinates)
+ */
+export type Placement = {
+  id?: string | undefined
+  position: XYPoint
+}
+
+/**
+ * Model undo / redo queued for execution
+ */
+export const modelHistoryOp = (op: SyncOp | null): { direction: 'undo' | 'redo'; historyId?: string } | null => {
+  if (typeof op !== 'string') {
+    return null
+  }
+  const [kind, historyId] = op.split(':', 2) as [string, string | undefined]
+  if (kind !== 'undo-model' && kind !== 'redo-model') {
+    return null
+  }
+  return { direction: kind === 'undo-model' ? 'undo' : 'redo', ...historyId && { historyId } }
+}
+
 export interface Ghost {
   change: GhostChange
+  /**
+   * Fqn of the created item, once the change is executed
+   */
+  createdId?: string | undefined
   /**
    * Where the item was created (flow coordinates), if known
    */
@@ -140,7 +174,7 @@ export interface EditorActorContext {
   /**
    * Position for the element created on the canvas, applied to the manual layout once the view is synced
    */
-  pendingPlacement: XYPoint | null
+  pendingPlacements: Placement[]
 
   /**
    * Items were removed from the view, refresh the manual layout once the view is synced

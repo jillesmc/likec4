@@ -13,6 +13,8 @@ import { TitlePrompt } from './TitlePrompt'
  */
 export const INSTANCE_ITEM = '@instance'
 
+export const INVALID_INSTANCE_DROP = 'Drop "Instance" on a deployment node'
+
 export type CanvasDropConfig =
   | { viewType: 'element'; kinds: readonly ElementKind[] }
   | { viewType: 'deployment'; kinds: readonly DeploymentKind[]; elements: readonly string[] }
@@ -44,6 +46,7 @@ export function deploymentNodeOf(node: ConnectableNode | null | undefined): Depl
 export function useCanvasDrop(
   config: CanvasDropConfig,
   onAdd: (change: CanvasDropChange, position: XYPoint) => void,
+  onInvalidDrop?: (message: string) => void,
 ): {
   onDragOver: (event: DragEvent) => void
   onDrop: (event: DragEvent) => void
@@ -80,6 +83,8 @@ export function useCanvasDrop(
       // An instance needs a deployment node
       if (parent) {
         setDrop({ op: 'add-instance', parent, position })
+      } else {
+        onInvalidDrop?.(INVALID_INSTANCE_DROP)
       }
       return
     }

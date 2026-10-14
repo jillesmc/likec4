@@ -295,26 +295,35 @@ function edgeControlPoints(
 type PlacedNode = { id: string; x: number; y: number; width: number; height: number; children: readonly unknown[] }
 
 /**
- * Centers the leaf node that exists in `updated` but not in `manual` at the given point.
- * Used to keep an element created on the canvas where it was dropped.
- * Returns `updated` unchanged when there is no such node.
+ * Centers the leaf nodes that exist in `updated` but not in `manual` at the given points.
+ * Used to keep items created on the canvas where they were dropped.
+ * A placement with an id moves that node; a placement without id moves the next new leaf node.
+ * Returns `updated` unchanged when there is nothing to place.
  */
-export function placeNewNode<V extends { nodes: readonly PlacedNode[] }>(
+export function placeNewNodes<V extends { nodes: readonly PlacedNode[] }>(
   manualView: { nodes: readonly PlacedNode[] },
   updated: V,
-  center: { x: number; y: number },
+  placements: ReadonlyArray<{ id?: string | undefined; position: { x: number; y: number } }>,
 ): V {
   const known = new Set(manualView.nodes.map(n => n.id))
-  const index = updated.nodes.findIndex(n => !known.has(n.id) && n.children.length === 0)
-  if (index < 0) {
+  const candidates = updated.nodes.filter(n => !known.has(n.id) && n.children.length === 0).map(n => n.id)
+  const targets = new Map<string, { x: number; y: number }>()
+  for (const { id, position } of placements) {
+    const target = id && candidates.includes(id)
+      ? id
+      : candidates.find(c => !targets.has(c) && !placements.some(p => p.id === c))
+    if (target && !targets.has(target)) {
+      targets.set(target, position)
+    }
+  }
+  if (targets.size === 0) {
     return updated
   }
-  const node = updated.nodes[index]!
-  const nodes = [...updated.nodes]
-  nodes[index] = {
-    ...node,
-    x: Math.round(center.x - node.width / 2),
-    y: Math.round(center.y - node.height / 2),
-  }
+  const nodes = updated.nodes.map(node => {
+    const center = targets.get(node.id)
+    return center
+      ? { ...node, x: Math.round(center.x - node.width / 2), y: Math.round(center.y - node.height / 2) }
+      : node
+  })
   return { ...updated, nodes }
 }

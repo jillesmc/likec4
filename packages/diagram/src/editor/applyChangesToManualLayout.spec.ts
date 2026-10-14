@@ -2,7 +2,7 @@ import type * as t from '@likec4/core/types'
 import { indexBy } from 'remeda'
 import { describe, expect, it } from 'vitest'
 import { type Patches, prepareFixtures } from './__tests__/fixture'
-import { applyChangesToManualLayout, placeNewNode } from './applyChangesToManualLayout'
+import { applyChangesToManualLayout, placeNewNodes } from './applyChangesToManualLayout'
 
 export function testData<const Nodes, Edges>(patches?: Patches<Nodes, Edges>) {
   const {
@@ -342,7 +342,7 @@ describe('applyChangesToManualLayout', () => {
   })
 })
 
-describe('placeNewNode', () => {
+describe('placeNewNodes', () => {
   const node = (id: string, x: number, y: number) => ({
     id,
     x,
@@ -356,13 +356,24 @@ describe('placeNewNode', () => {
   it('UT-062: centers the new leaf node at the drop position', () => {
     const manual = view([node('a', 0, 0)])
     const updated = view([node('a', 0, 0), node('b', 500, 500)])
-    const placed = placeNewNode(manual, updated, { x: 300, y: 200 })
+    const placed = placeNewNodes(manual, updated, [{ position: { x: 300, y: 200 } }])
     expect(placed.nodes.find(n => n.id === 'b')).toMatchObject({ x: 250, y: 170 })
     expect(placed.nodes.find(n => n.id === 'a')).toMatchObject({ x: 0, y: 0 })
   })
 
+  it('issue 013: places every created node at its own drop position', () => {
+    const manual = view([node('a', 0, 0)])
+    const updated = view([node('a', 0, 0), node('b', 500, 500), node('c', 600, 600)])
+    const placed = placeNewNodes(manual, updated, [
+      { id: 'c', position: { x: 100, y: 100 } },
+      { id: 'b', position: { x: 300, y: 300 } },
+    ])
+    expect(placed.nodes.find(n => n.id === 'c')).toMatchObject({ x: 50, y: 70 })
+    expect(placed.nodes.find(n => n.id === 'b')).toMatchObject({ x: 250, y: 270 })
+  })
+
   it('returns the view unchanged without new nodes', () => {
     const manual = view([node('a', 0, 0)])
-    expect(placeNewNode(manual, manual, { x: 1, y: 1 })).toBe(manual)
+    expect(placeNewNodes(manual, manual, [{ position: { x: 1, y: 1 } }])).toBe(manual)
   })
 })

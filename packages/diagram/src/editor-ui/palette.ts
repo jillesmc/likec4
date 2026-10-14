@@ -34,7 +34,7 @@ export function canvasPalette<A extends aux.Any>(
     case 'deployment': {
       // keys of specification.deployments are deployment node kinds
       const kinds = keys(spec.deployments).map(kind => kind as DeploymentKind)
-      const elements = [...model.elements()].map(e => e.id as string)
+      const elements: string[] = [...model.elements()].map(e => e.id)
       const items = kinds.map(kind => ({ kind, label: kind }))
       return {
         title: 'Deployment',

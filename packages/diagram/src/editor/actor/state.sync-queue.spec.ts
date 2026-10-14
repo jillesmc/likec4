@@ -45,7 +45,8 @@ describe('editor sync queue', () => {
       requested: input.changes,
       applied: input.changes,
       failed: [],
-      undoable: 0,
+      undoable: [],
+      created: [],
       waitForViewSync: false,
     }))
     const actor = createTestActor(executeChange)
@@ -66,7 +67,8 @@ describe('editor sync queue', () => {
       requested: input.changes,
       applied: input.changes,
       failed: [],
-      undoable: 0,
+      undoable: [],
+      created: [],
       waitForViewSync: true,
     }))
     const actor = createTestActor(executeChange)
@@ -104,7 +106,14 @@ describe('editor sync queue', () => {
           await firstCall
         }
         executed.push(...input.changes)
-        return { requested: input.changes, applied: input.changes, failed: [], undoable: 0, waitForViewSync: false }
+        return {
+          requested: input.changes,
+          applied: input.changes,
+          failed: [],
+          undoable: [],
+          created: [],
+          waitForViewSync: false,
+        }
       })
       const actor = createTestActor(executeChange)
       const first = relation('a', 'b')
@@ -125,7 +134,8 @@ describe('editor sync queue', () => {
         requested: input.changes,
         applied: input.changes,
         failed: [],
-        undoable: 0,
+        undoable: [],
+        created: [],
         waitForViewSync: true,
       }))
       const actor = createTestActor(executeChange)
@@ -153,7 +163,8 @@ describe('editor sync queue', () => {
         requested: input.changes,
         applied: [],
         failed: input.changes.map(change => ({ change, error: '[not-found] Element "b" not found' })),
-        undoable: 0,
+        undoable: [],
+        created: [],
         waitForViewSync: false,
       }))
       const actor = createTestActor(executeChange)
@@ -171,13 +182,28 @@ describe('editor sync queue', () => {
     })
   })
 
+  it('issue 009: error.show displays a message', () => {
+    const actor = createTestActor(async ({ input }) => ({
+      requested: input.changes,
+      applied: input.changes,
+      failed: [],
+      undoable: [],
+      created: [],
+      waitForViewSync: false,
+    }))
+    actor.send({ type: 'error.show', message: 'Drop "Instance" on a deployment node' })
+    expect(actor.getSnapshot().context.lastError).toBe('Drop "Instance" on a deployment node')
+    actor.stop()
+  })
+
   describe('model change history', () => {
     const change: ViewChange.ChangeTitle = { op: 'change-title', target: scalar.Fqn('a'), title: 'A' }
     const executeUndoable = vi.fn<EditorCalls.ExecuteChange>(async ({ input }) => ({
       requested: input.changes,
       applied: input.changes,
       failed: [],
-      undoable: input.changes.length,
+      undoable: input.changes.map(c => c.op === 'change-title' ? `h-${c.title}` : undefined),
+      created: [],
       waitForViewSync: false,
     }))
     const idle = (snapshot: { hasTag: (tag: 'busy') => boolean }) => !snapshot.hasTag('busy')
@@ -186,21 +212,23 @@ describe('editor sync queue', () => {
       const directions = [] as string[]
       const actor = createTestActor(executeUndoable, async ({ input }) => {
         directions.push(input.direction)
+        // issue 004: the history id of the entry is sent to the host
+        expect(input.historyId).toBe('h-A')
         return {}
       })
       actor.send({ type: 'change.view', change })
       await waitFor(actor, s => idle(s) && s.context.history !== null, { timeout: 500 })
-      expect(actor.getSnapshot().context.history).toEqual({ head: { kind: 'model' }, tail: null })
+      expect(actor.getSnapshot().context.history).toEqual({ head: { kind: 'model', historyId: 'h-A' }, tail: null })
 
       actor.send({ type: 'undo' })
       await waitFor(actor, s => idle(s) && directions.length === 1, { timeout: 3000 })
       expect(actor.getSnapshot().context.history).toBeNull()
-      expect(actor.getSnapshot().context.redo).toEqual({ head: { kind: 'model' }, tail: null })
+      expect(actor.getSnapshot().context.redo).toEqual({ head: { kind: 'model', historyId: 'h-A' }, tail: null })
 
       actor.send({ type: 'redo' })
       await waitFor(actor, s => idle(s) && directions.length === 2, { timeout: 3000 })
       expect(directions).toEqual(['undo', 'redo'])
-      expect(actor.getSnapshot().context.history).toEqual({ head: { kind: 'model' }, tail: null })
+      expect(actor.getSnapshot().context.history).toEqual({ head: { kind: 'model', historyId: 'h-A' }, tail: null })
       actor.stop()
     })
 
@@ -219,10 +247,10 @@ describe('editor sync queue', () => {
       actor.stop()
     })
 
-    it('two quick undos are both executed', async () => {
+    it('two quick undos are both executed, each with its own history id', async () => {
       const directions = [] as string[]
       const actor = createTestActor(executeUndoable, async ({ input }) => {
-        directions.push(input.direction)
+        directions.push(`${input.direction}:${input.historyId}`)
         return {}
       })
       actor.send({ type: 'change.view', change })
@@ -233,7 +261,7 @@ describe('editor sync queue', () => {
       actor.send({ type: 'undo' })
       actor.send({ type: 'undo' })
       await waitFor(actor, () => directions.length === 2, { timeout: 5000 })
-      expect(directions).toEqual(['undo', 'undo'])
+      expect(directions).toEqual(['undo:h-B', 'undo:h-A'])
       actor.stop()
     })
   })

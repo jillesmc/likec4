@@ -64,9 +64,6 @@ export const RelationshipEdge = memoEdge<Types.EdgeProps<'relationship'>>((props
     enableCompareWithLatest,
   } = useEnabledFeatures()
   const enabledEditing = !enableReadOnly
-  // Only an edge of a single relation can be deleted from the model
-  const edgeRelations = enabledEditing ? diagram.findDiagramEdge(props.id as EdgeId)?.relations ?? [] : []
-  const deletableRelation = canDeleteFromModel({ relations: edgeRelations }) ? edgeRelations[0] : undefined
   const {
     id,
     selected = false,
@@ -76,6 +73,11 @@ export const RelationshipEdge = memoEdge<Types.EdgeProps<'relationship'>>((props
       ...data
     },
   } = props
+  // Only an edge of a single relation can be deleted from the model (looked up only when selected)
+  const edgeRelations = enabledEditing && selected ? diagram.findDiagramEdge(id as EdgeId)?.relations ?? [] : []
+  const deletableRelation = canDeleteFromModel({ relations: edgeRelations }) ? edgeRelations[0] : undefined
+  // Edges without label show the button at the middle point of the edge
+  const middlePoint = data.points[Math.floor(data.points.length / 2)]
 
   const navigateTo = enableNavigateTo && !isControlPointDragging ? data.navigateTo : undefined
 
@@ -338,7 +340,7 @@ export const RelationshipEdge = memoEdge<Types.EdgeProps<'relationship'>>((props
               className={enabledEditing ? edgesCss.labelDraggable : undefined}
               {...sequenceStepData}
               edgeProps={props}>
-              {deletableRelation && selected && (
+              {deletableRelation && (
                 <DeleteFromModelButton
                   button="edge"
                   target={{ relation: deletableRelation }}
@@ -353,6 +355,19 @@ export const RelationshipEdge = memoEdge<Types.EdgeProps<'relationship'>>((props
                   }} />
               )}
             </EdgeLabel>
+          </EdgeLabelContainer>
+        )}
+        {!labelBBox && deletableRelation && middlePoint && (
+          <EdgeLabelContainer
+            edgeProps={props}
+            labelPosition={{ x: middlePoint[0], y: middlePoint[1], translate: 'translate(-50%, -50%)' }}>
+            {/* the label renderer disables pointer events */}
+            <div style={{ pointerEvents: 'all' }}>
+              <DeleteFromModelButton
+                button="edge"
+                target={{ relation: deletableRelation }}
+                title={data.label ?? 'relation'} />
+            </div>
           </EdgeLabelContainer>
         )}
       </EdgeContainer>

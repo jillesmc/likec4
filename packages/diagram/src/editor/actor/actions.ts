@@ -125,7 +125,7 @@ export const undo = () =>
         history: history.tail,
         redo: { head: last, tail: redo },
       })
-      enqueue.raise({ type: 'change.undo-model' })
+      enqueue.raise({ type: 'change.undo-model', historyId: last.historyId })
       return
     }
 
@@ -159,7 +159,7 @@ export const redo = () =>
         history: { head: last, tail: history },
         redo: redo.tail,
       })
-      enqueue.raise({ type: 'change.redo-model' })
+      enqueue.raise({ type: 'change.redo-model', historyId: last.historyId })
       return
     }
 
@@ -199,9 +199,9 @@ export const pushToSyncQueue = () =>
         break
       case 'change.undo-model':
         // Every undo / redo is executed, never deduplicated
-        return { syncQueue: [...syncQueue, 'undo-model'] }
+        return { syncQueue: [...syncQueue, `undo-model:${event.historyId ?? ''}`] }
       case 'change.redo-model':
-        return { syncQueue: [...syncQueue, 'redo-model'] }
+        return { syncQueue: [...syncQueue, `redo-model:${event.historyId ?? ''}`] }
       default:
         throw new Error(`Invalid event type: ${event.type}`)
     }
@@ -281,16 +281,20 @@ export const settleGhosts = () =>
         ghosts: context.ghosts.filter(ghost => isPending(ghost, context)),
       })
     }
-    // Items placed on the canvas (all ghosts except relations)
-    const placement = settled.findLast(g =>
+    // Items placed on the canvas (all ghosts except relations and steps), in order
+    const placements = settled.flatMap(g =>
       g.change.op !== 'add-relation' && g.change.op !== 'add-dynamic-step' && g.position
-    )?.position
-    if (!placement && !context.refreshManualLayout) {
+        ? [{ id: g.createdId, position: g.position }]
+        : []
+    )
+    if (placements.length === 0 && !context.refreshManualLayout) {
       return
     }
     enqueue.assign({ refreshManualLayout: false })
-    if (getDiagramContext(system).view._layout === 'manual') {
-      enqueue.assign({ pendingPlacement: placement ?? null })
+    // the diagram actor may be absent (e.g. the editor actor alone in tests)
+    const diagram: { getSnapshot(): { context: DiagramContext } } | undefined = system.get('diagram')
+    if (diagram?.getSnapshot().context.view._layout === 'manual') {
+      enqueue.assign({ pendingPlacements: placements })
       enqueue.raise({ type: 'change.latest-to-manual' })
     }
   })

@@ -12,7 +12,7 @@ import { useCustomCompareMemo } from '@react-hookz/web'
 import { Controls as XYFlowControls, Panel } from '@xyflow/react'
 import type { OnMove, OnMoveEnd, Viewport } from '@xyflow/system'
 import { shallowEqual } from 'fast-equals'
-import type { MouseEvent as ReactMouseEvent, PropsWithChildren } from 'react'
+import { type MouseEvent as ReactMouseEvent, type PropsWithChildren, useMemo } from 'react'
 import type { JSX } from 'react/jsx-runtime'
 import { isEmpty } from 'remeda'
 import type { Simplify } from 'type-fest'
@@ -210,13 +210,22 @@ export function LikeC4DiagramXYFlow({
   } = useDiagramSelector(selectXYProps)
   const isEditorBusy = useEditorActorStateHasTag('busy')
   // Palette of kinds to create items, available only with the model
-  const palette = itemsCreatable && likec4model ? canvasPalette(viewType, likec4model) : null
+  const palette = useMemo(
+    () => itemsCreatable && likec4model ? canvasPalette(viewType, likec4model) : null,
+    [itemsCreatable, likec4model, viewType],
+  )
   const titleEditing = useTitleEditing(change => {
     diagram.editorActor().send({ type: 'change.view', change })
   })
-  const canvasDrop = useCanvasDrop(palette?.config ?? { viewType: 'element', kinds: [] }, (change, position) => {
-    diagram.editorActor().send({ type: 'change.view', change, position })
-  })
+  const canvasDrop = useCanvasDrop(
+    palette?.config ?? { viewType: 'element', kinds: [] },
+    (change, position) => {
+      diagram.editorActor().send({ type: 'change.view', change, position })
+    },
+    message => {
+      diagram.editorActor().send({ type: 'error.show', message })
+    },
+  )
   nodesDraggable = resolveInteractionEnabled(nodesDraggable, nodesDraggableOverride, isEditorBusy)
   nodesSelectable = resolveInteractionEnabled(nodesSelectable, nodesSelectableOverride, isEditorBusy)
 

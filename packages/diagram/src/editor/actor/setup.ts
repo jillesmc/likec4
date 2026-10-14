@@ -1,4 +1,3 @@
-import type { XYPoint } from '@likec4/core/geometry'
 import type * as t from '@likec4/core/types'
 import {
   type ActorRefFromLogic,
@@ -19,6 +18,7 @@ import {
   type EditorActorEvent,
   type EditorActorInput,
   type EditorActorStateTag,
+  type Placement,
   isModelHistoryEntry,
 } from './types'
 
@@ -31,9 +31,9 @@ export namespace EditorCalls {
       viewId: t.ViewId
       current: t.LayoutedView | undefined
       /**
-       * Center of the element created on the canvas, if any
+       * Items created on the canvas, to keep where they were dropped
        */
-      placement?: XYPoint | null | undefined
+      placements?: Placement[] | undefined
     }
     export type Output = { updated: t.LayoutedView }
   }
@@ -62,9 +62,13 @@ export namespace EditorCalls {
        */
       failed: Array<{ change: t.ViewChange; error: string }>
       /**
-       * Number of applied model changes that can be undone through the editor port
+       * Applied changes that can be undone through the editor port (history ids, in order)
        */
-      undoable: number
+      undoable: Array<string | undefined>
+      /**
+       * Items created by the applied changes
+       */
+      created: Array<{ change: t.ViewChange; id: string }>
       waitForViewSync: boolean
     }
   }
@@ -93,7 +97,7 @@ export namespace EditorCalls {
     params: { input: ModelHistory.Input },
   ) => Promise<ModelHistory.Output>
   export namespace ModelHistory {
-    export type Input = { viewId: t.ViewId; direction: 'undo' | 'redo' }
+    export type Input = { viewId: t.ViewId; direction: 'undo' | 'redo'; historyId?: string | undefined }
     export type Output = {}
   }
 }
