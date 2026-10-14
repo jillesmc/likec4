@@ -29,6 +29,12 @@ describe('updateView', () => {
   })
 
   it('resolves when the change is applied', async () => {
-    await expect(updateView(params({ success: true, location: null }), data)).resolves.toBeUndefined()
+    await expect(updateView(params({ success: true, location: null }), data)).resolves.toEqual({})
+  })
+
+  it('returns the history id and the created fqn', async () => {
+    await expect(
+      updateView(params({ success: true, location: null, historyId: 'h1', created: 'cloud.api' }), data),
+    ).resolves.toEqual({ historyId: 'h1', created: 'cloud.api' })
   })
 })

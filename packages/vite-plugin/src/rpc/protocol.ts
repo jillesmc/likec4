@@ -1,6 +1,17 @@
 import type { AdhocViewPredicate } from '@likec4/core/compute-view'
 import type { LayoutedElementView, ProjectId, ViewChange, ViewId } from '@likec4/core/types'
 
+export interface UpdateViewResult {
+  /**
+   * Id of the change in the undo history
+   */
+  historyId?: string | undefined
+  /**
+   * Fqn of the item created by the change
+   */
+  created?: string | undefined
+}
+
 export interface LikeC4VitePluginRpc {
   /**
    * Apply semantic layout (if AI is available)
@@ -20,7 +31,7 @@ export interface LikeC4VitePluginRpc {
     projectId: ProjectId
     viewId: ViewId
     change: ViewChange
-  }): Promise<void>
+  }): Promise<UpdateViewResult>
 
   /**
    * Undo the latest model change made from the canvas
@@ -28,6 +39,10 @@ export interface LikeC4VitePluginRpc {
    */
   undoChange(payload: {
     projectId: ProjectId
+    /**
+     * Id of the change to undo, refused when it is not the latest change
+     */
+    historyId?: string | undefined
   }): Promise<void>
 
   /**
@@ -36,6 +51,7 @@ export interface LikeC4VitePluginRpc {
    */
   redoChange(payload: {
     projectId: ProjectId
+    historyId?: string | undefined
   }): Promise<void>
 
   /**

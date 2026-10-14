@@ -27,4 +27,8 @@ export async function updateView({
     k.green('view:onChange'),
     '✅',
   ].join(' '))
+  return {
+    ...result.historyId && { historyId: result.historyId },
+    ...result.created && { created: result.created },
+  }
 }
