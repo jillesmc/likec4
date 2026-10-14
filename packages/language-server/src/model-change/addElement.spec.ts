@@ -175,6 +175,19 @@ describe('add-element', () => {
     expect(ws.read('model.c4')).toBe(before)
   })
 
+  it('issue 006: rejects inherited keys as kind', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': modelFile, 'views.c4': viewsFile })
+    expect(await ws.apply(addElement('cloud', 'constructor', 'X'))).toMatchObject({ code: 'unknown-kind' })
+  })
+
+  it('issue 013: returns the created fqn', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': modelFile, 'views.c4': viewsFile })
+    expect(await ws.apply(addElement('cloud', 'service', 'Billing API'))).toMatchObject({
+      success: true,
+      created: 'cloud.billingApi',
+    })
+  })
+
   it('UT-043: rejects invalid explicit name', async () => {
     const ws = await memfsWorkspace({ 'model.c4': modelFile, 'views.c4': viewsFile })
     const res = await ws.apply(addElement('cloud', 'service', 'Billing', 'billing api'))

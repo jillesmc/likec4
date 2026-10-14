@@ -59,6 +59,123 @@ describe('model change history (dev server)', () => {
       code: 'stale-undo',
       error: 'File changed since this edit; undo unavailable',
     })
+    // the stale entry is dropped
+    expect(await editor.undo({})).toMatchObject({ code: 'not-found' })
+  })
+
+  it('issue 003: a stale entry does not clear older entries', async () => {
+    const ws = await memfsWorkspace(files)
+    const editor = ws.services.likec4.ModelChanges
+    // first change touches views.c4 only, second change touches model.c4 only
+    await ws.apply({
+      viewId: 'index' as ViewId,
+      change: { op: 'exclude-from-view', targets: [{ node: 'customer' as Fqn }] },
+    })
+    const excluded = ws.read('views.c4')
+    await ws.apply({ viewId: 'index' as ViewId, change: { op: 'change-title', target: 'cloud' as Fqn, title: 'B' } })
+    const uri = URI.parse(ws.uri('model.c4'))
+    vol.writeFileSync(uri.fsPath, ws.read('model.c4').replace(`'B'`, `'C'`))
+    await ws.services.shared.workspace.DocumentBuilder.update([uri], [])
+
+    expect(await editor.undo({})).toMatchObject({ code: 'stale-undo' })
+    expect(ws.read('views.c4')).toBe(excluded)
+    expect(await editor.undo({})).toMatchObject({ success: true })
+    expect(ws.read('views.c4')).not.toContain('exclude customer')
+  })
+
+  it('issue 003: view changes (style) are recorded and undone in order', async () => {
+    const ws = await memfsWorkspace(files)
+    const editor = ws.services.likec4.ModelChanges
+    const original = ws.read('views.c4')
+    await ws.apply(addRelation)
+    const afterRelation = ws.read('views.c4')
+    const styled = await ws.apply({
+      viewId: 'index' as ViewId,
+      change: { op: 'change-element-style', targets: ['cloud' as Fqn], style: { color: 'red' } },
+    })
+    expect(styled).toMatchObject({ success: true, historyId: expect.any(String) })
+    expect(ws.read('views.c4')).toContain('style cloud')
+
+    expect(await editor.undo({})).toMatchObject({ success: true })
+    expect(ws.read('views.c4')).toBe(afterRelation)
+    expect(await editor.undo({})).toMatchObject({ success: true })
+    expect(ws.read('views.c4')).toBe(original)
+  })
+
+  it('issue 004: refuses to undo a change that is not the latest one', async () => {
+    const ws = await memfsWorkspace(files)
+    const editor = ws.services.likec4.ModelChanges
+    const first = await ws.apply(addRelation)
+    const second = await ws.apply({
+      viewId: 'index' as ViewId,
+      change: { op: 'change-title', target: 'cloud' as Fqn, title: 'Platform' },
+    })
+    const firstId = first.success ? first.historyId : undefined
+    const secondId = second.success ? second.historyId : undefined
+    expect(firstId).toBeDefined()
+    expect(await editor.undo({ historyId: firstId })).toEqual({
+      success: false,
+      code: 'stale-undo',
+      error: 'Another change was made since this edit; undo unavailable',
+    })
+    expect(await editor.undo({ historyId: secondId })).toMatchObject({ success: true, historyId: secondId })
+    expect(await editor.redo({ historyId: secondId })).toMatchObject({ success: true })
+  })
+
+  it('issue 001: a failed write during undo is reported and keeps the entry', async () => {
+    const ws = await memfsWorkspace(files)
+    await ws.apply(addRelation)
+    const fs = ws.services.shared.workspace.FileSystemProvider
+    vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('read-only file system'))
+    const editor = ws.services.likec4.ModelChanges
+    expect(await editor.undo({})).toMatchObject({ success: false, code: 'apply-failed' })
+    expect(await editor.undo({})).toMatchObject({ success: true })
+  })
+
+  it('issue 001: the guard reports when an invalid change could not be reverted', async () => {
+    const ws = await memfsWorkspace({
+      'model.c4': `
+        specification { element system }
+        model {
+          cloud = system 'Cloud' {
+            api = system 'API'
+          }
+        }
+      `,
+      'views.c4': `
+        views {
+          view index {
+            include *
+          }
+        }
+      `,
+    })
+    const originals = new Set([ws.read('model.c4'), ws.read('views.c4')])
+    const writeFile = vi.spyOn(ws.services.shared.workspace.FileSystemProvider, 'writeFile')
+    const write = writeFile.getMockImplementation()!
+    // the change is written, the revert (writing the original text back) fails
+    writeFile.mockImplementation(async (uri, content) => {
+      if (originals.has(content)) {
+        throw new Error('read-only file system')
+      }
+      return await write(uri, content)
+    })
+    const res = await ws.apply({
+      viewId: 'index' as ViewId,
+      change: { op: 'add-relation', source: 'cloud' as Fqn, target: 'cloud.api' as Fqn },
+    })
+    expect(res).toMatchObject({ success: false, code: 'apply-failed' })
+    expect(res.success === false && res.error).toContain('could not be reverted')
+  })
+
+  it('issue 012: the history is capped by size', async () => {
+    const ws = await memfsWorkspace(files)
+    const editor = ws.services.likec4.ModelChanges
+    // room for one entry only
+    editor.historyMaxSize = ws.read('model.c4').length * 3
+    await ws.apply({ viewId: 'index' as ViewId, change: { op: 'change-title', target: 'cloud' as Fqn, title: 'A' } })
+    await ws.apply({ viewId: 'index' as ViewId, change: { op: 'change-title', target: 'cloud' as Fqn, title: 'B' } })
+    expect(await editor.undo({})).toMatchObject({ success: true })
     expect(await editor.undo({})).toMatchObject({ code: 'not-found' })
   })
 

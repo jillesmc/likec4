@@ -78,6 +78,18 @@ describe('exclude-from-view', () => {
     expect(ws.read('views.c4')).toContain(`    include prod.**\n    exclude prod.eu\n`)
   })
 
+  it('issue 006: rejects unknown targets', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': modelFile, 'views.c4': views })
+    const before = ws.read('views.c4')
+    expect(await ws.apply(exclude('index', node('cloud.db }\nmodel { x'), node('cloud')))).toEqual({
+      success: false,
+      code: 'not-found',
+      error: 'Element "cloud.db }\nmodel { x" not found',
+    })
+    expect(await ws.apply(exclude('prod', { node: 'cloud' as DeploymentFqn }))).toMatchObject({ code: 'not-found' })
+    expect(ws.read('views.c4')).toBe(before)
+  })
+
   it('rejects dynamic views', async () => {
     const ws = await memfsWorkspace({ 'model.c4': modelFile, 'views.c4': views })
     expect(await ws.apply(exclude('flow', node('cloud.db')))).toMatchObject({

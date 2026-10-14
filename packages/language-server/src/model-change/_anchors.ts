@@ -11,6 +11,10 @@ const { findNodeForKeyword } = GrammarUtils
 export interface ModelChangePlan {
   edits: Map<string, TextEdit[]>
   modifiedRange: Location
+  /**
+   * Fqn of the item created by the change, if any
+   */
+  created?: string
 }
 
 /**

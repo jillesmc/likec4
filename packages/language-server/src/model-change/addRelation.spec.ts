@@ -376,6 +376,8 @@ describe('add-relation: applyChange end-to-end', () => {
         uri: ws.uri('model.c4'),
         range: { start: { line: 7, character: 4 }, end: { line: 7, character: 12 } },
       },
+      modifiedUris: [ws.uri('model.c4')],
+      historyId: expect.any(String),
     })
     expect(ws.read('views.c4')).toBe(viewsBefore)
     const model = await ws.services.likec4.ModelBuilder.computeModel()
@@ -398,6 +400,10 @@ describe('add-relation: applyChange end-to-end', () => {
     const res = await ws.apply(addRelation('customer', 'cloud'))
     expect(res).toMatchObject({ success: true })
     expect(ws.lsp!.applied).toHaveLength(1)
+    // issue 007: all modified documents are reported, so the editor can save them
+    expect(res.success && [...(res.modifiedUris ?? [])].sort()).toEqual([ws.uri('model.c4'), ws.uri('views.c4')].sort())
+    // no undo history with an LSP client
+    expect(res.success && res.historyId).toBeUndefined()
     expect(Object.keys(ws.lsp!.applied[0]!.edit.changes ?? {}).sort()).toEqual(
       [ws.uri('model.c4'), ws.uri('views.c4')].sort(),
     )
@@ -442,6 +448,33 @@ describe('add-relation: applyChange end-to-end', () => {
       code: 'apply-failed',
       error: 'Failed to apply changes: read-only',
     })
+  })
+
+  it('issue 002: requests with and without projectId share the same queue', async () => {
+    const ws = await memfsWorkspace({
+      'model.c4': modelFile,
+      'views.c4': `
+        views {
+          view index {
+            include *
+          }
+        }
+      `,
+    })
+    const [a, b] = await Promise.all([
+      ws.apply(addRelation('customer', 'cloud')),
+      ws.apply({ ...addRelation('customer', 'cloud.api'), projectId: 'default' }),
+    ])
+    expect(a).toMatchObject({ success: true })
+    expect(b).toMatchObject({ success: true })
+    expect(ws.read('model.c4')).toContain(
+      dsl(`
+      customer = actor 'Customer' {
+        -> cloud
+        -> cloud.api
+      }
+    `).replaceAll('\n', '\n  ').trimEnd(),
+    )
   })
 
   it('IT-008: applies concurrent changes one at a time', async () => {

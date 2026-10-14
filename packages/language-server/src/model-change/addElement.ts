@@ -38,7 +38,7 @@ export function addElement(
   if (lookup.view[_type] !== 'element') {
     throw new ModelChangeError('unsupported-in-view', `add-element is not supported in ${lookup.view[_type]} views`)
   }
-  if (!(kind in model.specification.elements)) {
+  if (!Object.hasOwn(model.specification.elements, kind)) {
     throw new ModelChangeError('unknown-kind', `Unknown element kind "${kind}"`)
   }
 
@@ -94,6 +94,7 @@ export function addElement(
   const plan: ModelChangePlan = {
     edits: new Map(),
     modifiedRange: { uri, range: anchored.range },
+    created: fqn,
   }
   addToPlan(plan, uri, anchored)
 

@@ -293,6 +293,18 @@ export namespace ChangeView {
   export type Res = {
     success: true
     location: Location | null
+    /**
+     * Documents modified by the change (all of them should be saved)
+     */
+    modifiedUris?: string[] | undefined
+    /**
+     * Id of the change in the undo history (only without LSP client, e.g. dev server)
+     */
+    historyId?: string | undefined
+    /**
+     * Fqn of the element, deployment node or instance created by the change
+     */
+    created?: string | undefined
   } | {
     success: false
     location?: Location | null
@@ -314,6 +326,11 @@ export namespace ChangeView {
 export namespace UndoChange {
   export type Params = {
     projectId?: string | undefined
+    /**
+     * Expected id of the change to undo (latest change of this client);
+     * refused when another change was made since
+     */
+    historyId?: string | undefined
   }
   export type Res = ChangeView.Res
   export const req = new RequestType<Params, Res, void>('likec4/undo-change')

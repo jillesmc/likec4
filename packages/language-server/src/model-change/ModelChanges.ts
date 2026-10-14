@@ -2,11 +2,10 @@ import { type ProjectId, type ViewChange, invariant, nonexhaustive } from '@like
 import { loggable, wrapError } from '@likec4/log'
 import { type LangiumDocument, TextDocument, URI } from 'langium'
 import { DiagnosticSeverity, Range, TextEdit } from 'vscode-languageserver-types'
-import type { ParsedLikeC4LangiumDocument } from '../ast'
 import { logger as mainLogger } from '../logger'
 import type { LikeC4ModelLocator, ViewLocateResult } from '../model'
 import type { LikeC4Services } from '../module'
-import type { ChangeView } from '../protocol'
+import type { ChangeView, UndoChange } from '../protocol'
 import type { ModelChangePlan } from './_anchors'
 import { addDeploymentNode, addInstance } from './addDeployment'
 import { addDynamicStep } from './addDynamicStep'
@@ -48,10 +47,19 @@ const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
 type HistoryEntry = {
+  id: string
   files: Array<{ uri: string; before: string; after: string }>
 }
 
 const HISTORY_LIMIT = 100
+/**
+ * Maximum size of the texts kept in the history of a project (characters)
+ */
+const HISTORY_MAX_SIZE = 20_000_000
+
+type UndoRedoParams = UndoChange.Params
+
+const entrySize = (entry: HistoryEntry) => entry.files.reduce((size, f) => size + f.before.length + f.after.length, 0)
 
 const errorsOf = (doc: LangiumDocument | undefined): string[] =>
   (doc?.diagnostics ?? [])
@@ -79,7 +87,13 @@ export class LikeC4ModelChanges {
   }
 
   protected enqueue<T>(projectId: string | undefined, fn: () => Promise<T>): Promise<T> {
-    const key = projectId ?? ''
+    // Same queue for the same project, whether the id is given or not
+    let key: string
+    try {
+      key = this.services.shared.workspace.ProjectsManager.ensureProject(projectId as ProjectId).id
+    } catch {
+      key = projectId ?? ''
+    }
     const next = (this.queues.get(key) ?? Promise.resolve()).then(fn)
     this.queues.set(key, next.catch(() => undefined))
     return next
@@ -102,8 +116,11 @@ export class LikeC4ModelChanges {
         }
       }
       const edits = Array.isArray(res) ? res : [res]
-      const applyResult = await this.applyTextEdits(payload.doc, edits)
-      if (!applyResult) {
+      const applyResult = await this.applyRecorded(
+        new Map([[payload.doc.textDocument.uri, edits]]),
+        this.resolveProjectId(_projectId),
+      )
+      if (!applyResult.applied) {
         return {
           success: false,
           error: 'Failed to apply text edits',
@@ -112,6 +129,7 @@ export class LikeC4ModelChanges {
       return {
         success: true,
         location: null,
+        ...applyResult.historyId && { historyId: applyResult.historyId },
       }
     }
 
@@ -171,8 +189,8 @@ export class LikeC4ModelChanges {
         }
       }
       // Apply the text edits to the document
-      const applyResult = await this.applyTextEdits(lookup.doc, edits)
-      if (!applyResult) {
+      const applyResult = await this.applyRecorded(new Map([[textDocument.uri, edits]]), project.id)
+      if (!applyResult.applied) {
         return {
           success: false,
           error: `Failed to apply changes`,
@@ -185,6 +203,7 @@ export class LikeC4ModelChanges {
           uri: textDocument.uri,
           range: modifiedRange,
         },
+        ...applyResult.historyId && { historyId: applyResult.historyId },
       }
     } catch (err) {
       const error = loggable(
@@ -264,7 +283,7 @@ export class LikeC4ModelChanges {
           break
         }
         case 'exclude-from-view': {
-          plan = excludeFromView({ lookup, change })
+          plan = excludeFromView({ lookup, model, change })
           break
         }
         case 'delete-from-model': {
@@ -337,17 +356,52 @@ export class LikeC4ModelChanges {
       const errors = errorsOf(documents.getDocument(URI.parse(uri)))
       if (errors.length > prev.errors.length) {
         const newError = errors.find(e => !prev.errors.includes(e)) ?? errors[0]!
-        await this.revert(before)
+        const reverted = await this.revert(before)
+        if (!reverted.applied) {
+          throw new ModelChangeError(
+            'apply-failed',
+            `Change has errors and could not be reverted (${reverted.reason}): ${newError}`,
+          )
+        }
         throw new ModelChangeError('invalid-result', `Change reverted: ${newError}`)
       }
     }
 
-    this.recordHistory(projectId, before)
+    const historyId = this.recordHistory(projectId, before)
 
     return {
       success: true,
       location: plan.modifiedRange,
+      modifiedUris: [...plan.edits.keys()],
+      ...historyId && { historyId },
+      ...plan.created && { created: plan.created },
     }
+  }
+
+  protected resolveProjectId(projectId: string | undefined): ProjectId {
+    return this.services.shared.workspace.ProjectsManager.ensureProject(projectId as ProjectId).id
+  }
+
+  /**
+   * Applies text edits and records them in the history (dev server)
+   */
+  protected async applyRecorded(
+    edits: Map<string, TextEdit[]>,
+    projectId: ProjectId,
+  ): Promise<{ applied: true; historyId: string | null } | { applied: false; reason: string }> {
+    const documents = this.services.shared.workspace.LangiumDocuments
+    const before = new Map<string, { text: string }>()
+    for (const uri of edits.keys()) {
+      const text = documents.getDocument(URI.parse(uri))?.textDocument.getText()
+      if (text !== undefined) {
+        before.set(uri, { text })
+      }
+    }
+    const result = await this.applyWorkspaceEdits(edits)
+    if (!result.applied) {
+      return result
+    }
+    return { applied: true, historyId: this.recordHistory(projectId, before) }
   }
 
   /**
@@ -365,9 +419,19 @@ export class LikeC4ModelChanges {
     return history
   }
 
-  protected recordHistory(projectId: ProjectId, before: Map<string, { text: string }>): void {
+  private historySeq = 0
+
+  /**
+   * Maximum size of the texts kept in the undo history of a project (characters)
+   */
+  public historyMaxSize = HISTORY_MAX_SIZE
+
+  /**
+   * Records the change in the history of the project and returns its id (null with LSP connection)
+   */
+  protected recordHistory(projectId: ProjectId, before: Map<string, { text: string }>): string | null {
     if (this.services.shared.lsp.Connection) {
-      return
+      return null
     }
     const documents = this.services.shared.workspace.LangiumDocuments
     const files = [...before].map(([uri, { text }]) => ({
@@ -376,28 +440,34 @@ export class LikeC4ModelChanges {
       after: documents.getDocument(URI.parse(uri))?.textDocument.getText() ?? text,
     }))
     const history = this.historyOf(projectId)
-    history.undo.push({ files })
-    if (history.undo.length > HISTORY_LIMIT) {
-      history.undo.shift()
-    }
+    const id = `h${++this.historySeq}`
+    history.undo.push({ id, files })
     history.redo = []
+    let size = history.undo.reduce((total, entry) => total + entrySize(entry), 0)
+    while (history.undo.length > 1 && (history.undo.length > HISTORY_LIMIT || size > this.historyMaxSize)) {
+      size -= entrySize(history.undo.shift()!)
+    }
+    return id
   }
 
   /**
    * Reverts the latest model change of the project (dev server only)
    */
-  public undo(params: { projectId?: string | undefined }): Promise<ChangeView.Res> {
-    return this.enqueue(params.projectId, () => this.restore(params.projectId, 'undo'))
+  public undo(params: UndoRedoParams): Promise<ChangeView.Res> {
+    return this.enqueue(params.projectId, () => this.restore(params, 'undo'))
   }
 
   /**
    * Re-applies the latest reverted model change of the project (dev server only)
    */
-  public redo(params: { projectId?: string | undefined }): Promise<ChangeView.Res> {
-    return this.enqueue(params.projectId, () => this.restore(params.projectId, 'redo'))
+  public redo(params: UndoRedoParams): Promise<ChangeView.Res> {
+    return this.enqueue(params.projectId, () => this.restore(params, 'redo'))
   }
 
-  protected async restore(projectId: string | undefined, direction: 'undo' | 'redo'): Promise<ChangeView.Res> {
+  protected async restore(
+    { projectId, historyId }: UndoRedoParams,
+    direction: 'undo' | 'redo',
+  ): Promise<ChangeView.Res> {
     if (this.services.shared.lsp.Connection) {
       return {
         success: false,
@@ -408,22 +478,30 @@ export class LikeC4ModelChanges {
     const project = this.services.shared.workspace.ProjectsManager.ensureProject(projectId as ProjectId)
     const history = this.historyOf(project.id)
     const [from, to] = direction === 'undo' ? [history.undo, history.redo] : [history.redo, history.undo]
-    const entry = from.pop()
-    if (!entry) {
+    const top = from.at(-1)
+    if (!top) {
       return {
         success: false,
         code: 'not-found',
         error: direction === 'undo' ? 'Nothing to undo' : 'Nothing to redo',
       }
     }
+    // The change was not the latest one (e.g. another client changed the project since)
+    if (historyId && top.id !== historyId) {
+      return {
+        success: false,
+        code: 'stale-undo',
+        error: `Another change was made since this edit; ${direction} unavailable`,
+      }
+    }
+    const entry = from.pop()!
     const documents = this.services.shared.workspace.LangiumDocuments
     const texts = new Map<string, { text: string }>()
     for (const file of entry.files) {
       const current = documents.getDocument(URI.parse(file.uri))?.textDocument.getText()
       const expected = direction === 'undo' ? file.after : file.before
       if (current !== expected) {
-        history.undo = []
-        history.redo = []
+        // The entry can not be applied anymore, drop it (older entries stay available)
         return {
           success: false,
           code: 'stale-undo',
@@ -432,7 +510,15 @@ export class LikeC4ModelChanges {
       }
       texts.set(file.uri, { text: direction === 'undo' ? file.before : file.after })
     }
-    await this.revert(texts)
+    const result = await this.revert(texts)
+    if (!result.applied) {
+      from.push(entry)
+      return {
+        success: false,
+        code: 'apply-failed',
+        error: `Failed to ${direction} change: ${result.reason}`,
+      }
+    }
     to.push(entry)
     const first = entry.files[0]
     return {
@@ -440,13 +526,14 @@ export class LikeC4ModelChanges {
       location: first
         ? { uri: first.uri, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } }
         : null,
+      historyId: entry.id,
     }
   }
 
   /**
    * Restores documents to the given texts
    */
-  protected async revert(texts: Map<string, { text: string }>): Promise<void> {
+  protected async revert(texts: Map<string, { text: string }>): Promise<ApplyEditsResult> {
     const documents = this.services.shared.workspace.LangiumDocuments
     const edits = new Map<string, TextEdit[]>()
     for (const [uri, { text }] of texts) {
@@ -466,11 +553,7 @@ export class LikeC4ModelChanges {
     if (!result.applied) {
       logger.error`Failed to revert changes: ${result.reason}`
     }
-  }
-
-  protected async applyTextEdits(doc: ParsedLikeC4LangiumDocument, edits: TextEdit[]): Promise<boolean> {
-    const result = await this.applyWorkspaceEdits(new Map([[doc.textDocument.uri, edits]]))
-    return result.applied
+    return result
   }
 
   /**
@@ -484,16 +567,28 @@ export class LikeC4ModelChanges {
     const uris = [...edits.keys()].map(uri => URI.parse(uri))
     if (!lsp) {
       // fallback to direct file write if LSP connection is not available (e.g. when running in MCP/CLI/vite)
+      const written = [] as URI[]
+      let failure: string | null = null
       for (const [uri, textEdits] of edits) {
         const doc = workspace.LangiumDocuments.getDocument(URI.parse(uri))
         if (!doc) {
-          return { applied: false, reason: `Document ${uri} not found` }
+          failure = `Document ${uri} not found`
+          break
         }
         const text = TextDocument.applyEdits(doc.textDocument, textEdits)
-        await workspace.FileSystemProvider.writeFile(doc.uri, text)
+        try {
+          await workspace.FileSystemProvider.writeFile(doc.uri, text)
+          written.push(doc.uri)
+        } catch (err) {
+          failure = err instanceof Error ? err.message : String(err)
+          break
+        }
       }
-      await workspace.DocumentBuilder.update(uris, [])
-      return { applied: true }
+      // Rebuild what was written, also when a later write failed
+      if (written.length > 0) {
+        await workspace.DocumentBuilder.update(written, [])
+      }
+      return failure ? { applied: false, reason: failure } : { applied: true }
     }
     const applyResult = await lsp.workspace.applyEdit({
       label: `LikeC4 - change view`,

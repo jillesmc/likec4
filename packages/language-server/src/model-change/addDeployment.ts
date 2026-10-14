@@ -125,7 +125,7 @@ export function addDeploymentNode(
 ): ModelChangePlan {
   ensureDeploymentView(lookup, 'add-deployment-node')
   const { parent, kind, title } = change
-  if (!(kind in model.specification.deployments)) {
+  if (!Object.hasOwn(model.specification.deployments, kind)) {
     throw new ModelChangeError('unknown-kind', `Unknown deployment node kind "${kind}"`)
   }
   const taken = takenNames(model, parent)
@@ -134,7 +134,7 @@ export function addDeploymentNode(
   const fqn = fqnOf(name)
   const placed = placeLine(services, projectId, lookup, parent, `${name} = ${kind} ${quote(title)}`)
   const visible = isDeploymentElementVisible(model, lookup.view.id, { id: fqn, kind, title, style: {} })
-  return planWithInclude(lookup, placed, visible, fqn)
+  return { ...planWithInclude(lookup, placed, visible, fqn), created: fqn }
 }
 
 /**
@@ -161,5 +161,5 @@ export function addInstance(
   const fqn = fqnOf(name)
   const placed = placeLine(services, projectId, lookup, parent, line)
   const visible = isDeploymentElementVisible(model, lookup.view.id, { id: fqn, element, style: {} })
-  return planWithInclude(lookup, placed, visible, fqn)
+  return { ...planWithInclude(lookup, placed, visible, fqn), created: fqn }
 }
