@@ -58,7 +58,7 @@ layout edits, as one history. In VSCode, canvas undo stays layout-only.
 
 - [x] UT-130, UT-131, UT-132, UT-133 — undo stack
 - [x] IT-007 — RPC undo/redo round trip
-- [x] IT-009 — unsupported over LSP
+- [x] IT-009 — unsupported over LSP (superseded by ADR-004: the case now belongs to task 14)
 - [x] E2E-004 — canvas Ctrl+Z / Ctrl+Shift+Z
 
 ## Completion Notes (2026-10-13)
