@@ -10,7 +10,7 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 
 ## Design constraints
 
-- **Truthful UI**: affordances are *absent* (not disabled) when `enableReadOnly` is true or the
+- **Truthful UI**: affordances are _absent_ (not disabled) when `enableReadOnly` is true or the
   editor port is a stub (US-010). A pending item is always visually distinct from a confirmed one.
 - **Ghost style**: a dashed border/stroke at reduced opacity, reusing the existing `dimmed`-style
   tokens. There are no new colour tokens.
@@ -22,20 +22,20 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 
 ## Surface map
 
-| # | Surface | Kind | Core change | Stories |
-|---|---|---|---|---|
-| S1 | Node connection handles | new | Drag-to-connect between nodes | US-001, US-009 |
-| S2 | Ghost node / ghost edge | new | Pending rendering until sync, removed on failure | US-001, US-002, US-007, US-008, US-009 |
-| S3 | Element palette | new | Kinds from specification, drag source | US-002, US-007, US-008 |
-| S4 | Drop popover (title / element search) | new | Title input, or element picker for instances | US-002, US-007, US-008 |
-| S5 | Inline title editor | new | Double-click title → input | US-003 |
-| S6 | Node/edge context menu | new | "Delete from model" entry | US-005 |
-| S7 | Delete-from-model dialog | new | References list or confirm | US-005 |
-| S8 | `Del` behaviour | modify | Writes `exclude` instead of a snapshot-only removal | US-004 |
-| S9 | Error toasts | new usage | One toast per rejected gesture | all |
-| S10 | Connect popover | new (2026-10-18) | Title, kind, technology (element views); title, position (dynamic views) | US-013, US-015 |
-| S11 | Edge label title editor | new (2026-10-18) | Double-click an edge label to edit the relation title | US-014 |
-| S12 | Manual-layout notice | new (2026-10-18) | Notice in the palette + first-drop info toast | US-017 |
+| #   | Surface                               | Kind             | Core change                                                              | Stories                                |
+| --- | ------------------------------------- | ---------------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| S1  | Node connection handles               | new              | Drag-to-connect between nodes                                            | US-001, US-009                         |
+| S2  | Ghost node / ghost edge               | new              | Pending rendering until sync, removed on failure                         | US-001, US-002, US-007, US-008, US-009 |
+| S3  | Element palette                       | new              | Kinds from specification, drag source                                    | US-002, US-007, US-008                 |
+| S4  | Drop popover (title / element search) | new              | Title input, or element picker for instances                             | US-002, US-007, US-008                 |
+| S5  | Inline title editor                   | new              | Double-click title → input                                               | US-003                                 |
+| S6  | Node/edge context menu                | new              | "Delete from model" entry                                                | US-005                                 |
+| S7  | Delete-from-model dialog              | new              | References list or confirm                                               | US-005                                 |
+| S8  | `Del` behaviour                       | modify           | Writes `exclude` instead of a snapshot-only removal                      | US-004                                 |
+| S9  | Error toasts                          | new usage        | One toast per rejected gesture                                           | all                                    |
+| S10 | Connect popover                       | new (2026-10-18) | Title, kind, technology (element views); title, position (dynamic views) | US-013, US-015                         |
+| S11 | Edge label title editor               | new (2026-10-18) | Double-click an edge label to edit the relation title                    | US-014                                 |
+| S12 | Manual-layout notice                  | new (2026-10-18) | Notice in the palette + first-drop info toast                            | US-017                                 |
 
 ### S1. Node connection handles
 
@@ -44,9 +44,13 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 - **Change**: in edit mode, element/deployment nodes show source/target handles on hover. A
   connection line follows the cursor, and dropping on a valid node fires the gesture.
 - **States**: hidden (read-only / stub, including the SPA's default locked state until the user
-  unlocks editing), idle (source handle shown as a dot on the node's right edge on hover), dragging (connection
-  line), invalid target (no snap: self, empty canvas, or group node in a dynamic view —
-  US-001.EC-5, US-009.EC-1).
+  unlocks editing), idle (a 28 px "connect" button with an arrow icon, in the row of the node action
+  buttons, bottom-right, shown on hover or selection), dragging (connection line), released over
+  any part of a node (that node is the target), invalid target (self, empty canvas, or group node
+  in a dynamic view — US-001.EC-5, US-009.EC-1).
+- **Change (2026-10-18, owner feedback)**: the former 14 px dot on the right edge was hard to grab
+  (half of it was outside the node, so it vanished when the pointer left the node). It is replaced
+  by the connect button above.
 
 ### S2. Ghost node / ghost edge
 
@@ -168,9 +172,9 @@ everything.
 
 ### Signal & state mapping
 
-| State | Primitive / token |
-|---|---|
+| State           | Primitive / token                                                  |
+| --------------- | ------------------------------------------------------------------ |
 | pending (ghost) | existing node/edge with dashed stroke + the `dimmed` opacity token |
-| rejected | Mantine notification, `color="red"` |
-| blocked delete | Modal body list, no action button |
-| danger confirm | Mantine `Button color="red"` |
+| rejected        | Mantine notification, `color="red"`                                |
+| blocked delete  | Modal body list, no action button                                  |
+| danger confirm  | Mantine `Button color="red"`                                       |
