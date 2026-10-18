@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 9: Identifier prompt with an editable suggestion"
 type: feature
 complexity: medium
@@ -35,12 +35,12 @@ prefilled with the suggestion the server would derive, and is easy to accept (En
 
 ## Subtasks
 
-- [ ] 9.1 Core: move `_naming.ts` → `packages/core/src/utils/identifier.ts`, export from
+- [x] 9.1 Core: move `_naming.ts` → `packages/core/src/utils/identifier.ts`, export from
   `@likec4/core/utils`, move `_naming.spec.ts`.
-- [ ] 9.2 Server: import from core in `addElement.ts`, `addDeployment.ts`.
-- [ ] 9.3 Diagram: `Identifier` field in `TitlePrompt` (and the instance picker), follow/override
+- [x] 9.2 Server: import from core in `addElement.ts`, `addDeployment.ts`.
+- [x] 9.3 Diagram: `Identifier` field in `TitlePrompt` (and the instance picker), follow/override
   state, select-on-focus, inline validation, `name` in the emitted change.
-- [ ] 9.4 E2E: E2E-006 in `e2e/tests/visual-to-code.spec.ts`; update existing palette scenarios if
+- [x] 9.4 E2E: E2E-006 in `e2e/tests/visual-to-code.spec.ts`; update existing palette scenarios if
   they relied on the derived name.
 
 ## Implementation Details
@@ -54,8 +54,27 @@ prefilled with the suggestion the server would derive, and is easy to accept (En
 
 ## Tests
 
-- [ ] UT-200 — existing naming cases pass against core
-- [ ] UT-201, UT-202, UT-203 — prefill, follow/override, select on focus
-- [ ] UT-204, UT-205 — validation, `name` sent
-- [ ] UT-206 — instance suggestion
-- [ ] E2E-006 — typed identifier written
+- [x] UT-200 — existing naming cases pass against core
+- [x] UT-201, UT-202, UT-203 — prefill, follow/override, select on focus
+- [x] UT-204, UT-205 — validation, `name` sent
+- [x] UT-206 — instance suggestion
+- [x] E2E-006 — typed identifier written
+
+## Completion Notes (2026-10-18)
+
+- Core: `deriveIdentifier` / `isValidIdentifier` moved to `@likec4/core/utils` (`utils/identifier.ts`,
+  spec moved along); the language server imports them from there.
+- Server: an instance whose name equals the element name keeps the short `instanceOf <fqn>` form,
+  also when the name is explicit (the canvas always sends it now).
+- Diagram: `editor-ui/identifier.ts` (`takenNames`, `shownIdentifier`, `identifierError`) and an
+  optional `identifier` field in `TitlePrompt`: prefilled with the suggestion, follows the title until
+  something is typed, empty field follows again, focus selects all, inline error
+  (`Invalid identifier` / `Already used by a sibling`) disables confirm. `useCanvasDrop` computes the
+  siblings from the `LikeC4Model` in memory and sends `name`; without a model the field is absent and
+  the server derives the name.
+- UT-203 (select on focus) and UT-205 (`name` sent) are covered by E2E-006, since editor-ui specs
+  render statically (no DOM).
+- Verification: core 1163 passed; language-server 915 passed (the naming spec moved to core);
+  diagram 210 passed; `pnpm typecheck` 26/26; dev-server E2E 14 passed (new E2E-006; deployment
+  scenario still writes `instanceOf cloud.api`); static-build E2E 2 passed.
+
