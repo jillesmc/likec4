@@ -83,6 +83,42 @@ test('E2E-002: dropping an element kind in a view with manual layout keeps it at
   await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).toContain(`id: 'billing'`)
 })
 
+test('E2E-006: the identifier follows the title and can be replaced by typing', async ({ page }) => {
+  await page.goto('/view/index/')
+  await expect(page.locator('.react-flow__node[data-id="customer"]')).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  const pane = page.locator('.react-flow__pane')
+  const paneBox = (await pane.boundingBox())!
+  await page.locator('[data-likec4-palette-kind="system"]').dragTo(pane, {
+    targetPosition: { x: 200, y: paneBox.height - 150 },
+  })
+
+  const title = page.getByLabel('Title of the new system')
+  const identifier = page.getByLabel('Identifier')
+  await expect(identifier).toHaveValue('newSystem')
+  await title.fill('Payment Service')
+  await expect(identifier).toHaveValue('paymentService')
+
+  // Tab selects the suggestion, typing replaces it
+  await title.press('Tab')
+  await page.keyboard.type('payments')
+  await expect(identifier).toHaveValue('payments')
+  // the title no longer changes the typed identifier
+  await title.fill('Payment Services')
+  await expect(identifier).toHaveValue('payments')
+
+  // a taken identifier is refused
+  await identifier.fill('cloud')
+  await expect(page.getByText('Already used by a sibling')).toBeVisible()
+  await identifier.press('Enter')
+  await expect(identifier).toBeVisible()
+
+  await identifier.fill('payments')
+  await identifier.press('Enter')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`  payments = system 'Payment Services'`)
+})
+
 test('US-003: double-clicking a node edits its title in the sources', async ({ page }) => {
   await page.goto('/view/index/')
   const cloud = page.locator('.react-flow__node[data-id="cloud"]')
