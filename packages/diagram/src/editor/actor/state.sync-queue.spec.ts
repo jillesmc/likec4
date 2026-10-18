@@ -1,6 +1,6 @@
 import { type ViewChange, scalar } from '@likec4/core/types'
 import { describe, expect, it, vi } from 'vitest'
-import { createActor, fromPromise, waitFor } from 'xstate'
+import { createActor, createMachine, fromPromise, fromTransition, waitFor } from 'xstate'
 import { shouldWaitForViewSync } from '../LikeC4EditorCallbacks'
 import { editorActorLogic } from './machine'
 import type { EditorCalls } from './setup'
@@ -245,6 +245,54 @@ describe('editor sync queue', () => {
       expect(actor.getSnapshot().context.history).toBeNull()
       expect(actor.getSnapshot().context.redo).toBeNull()
       actor.stop()
+    })
+
+    it('UT-260: undo of a model change refreshes the manual layout snapshot', async () => {
+      // Only the call matters, the snapshot update is never resolved
+      const applyLatest = vi.fn<EditorCalls.ApplyLatestToManual>(() => new Promise(() => {}))
+      // Minimal diagram actor with a manual layout view
+      const node = { id: 'a', x: 0, y: 0, width: 100, height: 100, children: [] }
+      const diagram = fromTransition((state) => state, {
+        view: { id: 'test', _layout: 'manual', nodes: [node], edges: [] },
+        xynodes: [],
+        xyedges: [],
+        xystore: {
+          getState: () => ({
+            nodeLookup: new Map([[node.id, {
+              data: {},
+              internals: { positionAbsolute: { x: node.x, y: node.y } },
+              measured: { width: node.width, height: node.height },
+            }]]),
+            edgeLookup: new Map(),
+          }),
+        },
+      })
+      const parent = createActor(createMachine({
+        invoke: [
+          { src: diagram, systemId: 'diagram' },
+          {
+            id: 'editor',
+            systemId: 'editor',
+            src: editorActorLogic.provide({
+              actors: {
+                executeChange: fromPromise(executeUndoable),
+                modelHistory: fromPromise(async () => ({})),
+                applyLatest: fromPromise(applyLatest),
+              },
+            }),
+            input: { viewId: scalar.ViewId('test') },
+          },
+        ],
+      }))
+      parent.start()
+      const actor = parent.system.get('editor') as ReturnType<typeof createTestActor>
+      actor.send({ type: 'change.view', change })
+      await waitFor(actor, s => idle(s) && s.context.history !== null, { timeout: 500 })
+      expect(applyLatest).not.toHaveBeenCalled()
+
+      actor.send({ type: 'undo' })
+      await waitFor(actor, () => applyLatest.mock.calls.length > 0, { timeout: 5000 })
+      parent.stop()
     })
 
     it('two quick undos are both executed, each with its own history id', async () => {
