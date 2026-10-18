@@ -33,6 +33,53 @@ function createTestActor(
   return actor
 }
 
+/**
+ * Editor actor next to a minimal diagram actor showing a view with manual layout.
+ * `applyLatest` (the manual layout refresh) never resolves, only its calls matter.
+ */
+function createWithManualLayoutDiagram(
+  executeChange: EditorCalls.ExecuteChange,
+  modelHistory: EditorCalls.ModelHistory = async () => ({}),
+) {
+  const applyLatest = vi.fn<EditorCalls.ApplyLatestToManual>(() => new Promise(() => {}))
+  const node = { id: 'a', x: 0, y: 0, width: 100, height: 100, children: [] }
+  const diagram = fromTransition((state) => state, {
+    view: { id: 'test', _layout: 'manual', nodes: [node], edges: [] },
+    xynodes: [],
+    xyedges: [],
+    xystore: {
+      getState: () => ({
+        nodeLookup: new Map([[node.id, {
+          data: {},
+          internals: { positionAbsolute: { x: node.x, y: node.y } },
+          measured: { width: node.width, height: node.height },
+        }]]),
+        edgeLookup: new Map(),
+      }),
+    },
+  })
+  const parent = createActor(createMachine({
+    invoke: [
+      { src: diagram, systemId: 'diagram' },
+      {
+        id: 'editor',
+        systemId: 'editor',
+        src: editorActorLogic.provide({
+          actors: {
+            executeChange: fromPromise(executeChange),
+            modelHistory: fromPromise(modelHistory),
+            applyLatest: fromPromise(applyLatest),
+          },
+        }),
+        input: { viewId: scalar.ViewId('test') },
+      },
+    ],
+  }))
+  parent.start()
+  const actor = parent.system.get('editor') as ReturnType<typeof createTestActor>
+  return { actor, applyLatest, stop: () => parent.stop() }
+}
+
 describe('editor sync queue', () => {
   it('preserves synchronization unless a callback explicitly opts out', () => {
     expect(shouldWaitForViewSync()).toBe(true)
@@ -158,6 +205,26 @@ describe('editor sync queue', () => {
       actor.stop()
     })
 
+    it('US-001 EC-11: a relation created in a view with manual layout refreshes the snapshot', async () => {
+      const execute = vi.fn<EditorCalls.ExecuteChange>(async ({ input }) => ({
+        requested: input.changes,
+        applied: input.changes,
+        failed: [],
+        undoable: [],
+        created: [],
+        waitForViewSync: false,
+      }))
+      const { actor, applyLatest, stop } = createWithManualLayoutDiagram(execute)
+      actor.send({
+        type: 'change.view',
+        change: { op: 'add-relation', source: scalar.Fqn('a'), target: scalar.Fqn('b') },
+      })
+      await waitFor(actor, () => applyLatest.mock.calls.length > 0, { timeout: 5000 })
+      // no placement for relations, only the refresh
+      expect(applyLatest.mock.calls[0]![0].input.placements).toEqual([])
+      stop()
+    })
+
     it('UT-066: removes the ghost and keeps the error when the change is rejected', async () => {
       const executeChange = vi.fn<EditorCalls.ExecuteChange>(async ({ input }) => ({
         requested: input.changes,
@@ -248,51 +315,14 @@ describe('editor sync queue', () => {
     })
 
     it('UT-260: undo of a model change refreshes the manual layout snapshot', async () => {
-      // Only the call matters, the snapshot update is never resolved
-      const applyLatest = vi.fn<EditorCalls.ApplyLatestToManual>(() => new Promise(() => {}))
-      // Minimal diagram actor with a manual layout view
-      const node = { id: 'a', x: 0, y: 0, width: 100, height: 100, children: [] }
-      const diagram = fromTransition((state) => state, {
-        view: { id: 'test', _layout: 'manual', nodes: [node], edges: [] },
-        xynodes: [],
-        xyedges: [],
-        xystore: {
-          getState: () => ({
-            nodeLookup: new Map([[node.id, {
-              data: {},
-              internals: { positionAbsolute: { x: node.x, y: node.y } },
-              measured: { width: node.width, height: node.height },
-            }]]),
-            edgeLookup: new Map(),
-          }),
-        },
-      })
-      const parent = createActor(createMachine({
-        invoke: [
-          { src: diagram, systemId: 'diagram' },
-          {
-            id: 'editor',
-            systemId: 'editor',
-            src: editorActorLogic.provide({
-              actors: {
-                executeChange: fromPromise(executeUndoable),
-                modelHistory: fromPromise(async () => ({})),
-                applyLatest: fromPromise(applyLatest),
-              },
-            }),
-            input: { viewId: scalar.ViewId('test') },
-          },
-        ],
-      }))
-      parent.start()
-      const actor = parent.system.get('editor') as ReturnType<typeof createTestActor>
+      const { actor, applyLatest, stop } = createWithManualLayoutDiagram(executeUndoable)
       actor.send({ type: 'change.view', change })
       await waitFor(actor, s => idle(s) && s.context.history !== null, { timeout: 500 })
       expect(applyLatest).not.toHaveBeenCalled()
 
       actor.send({ type: 'undo' })
       await waitFor(actor, () => applyLatest.mock.calls.length > 0, { timeout: 5000 })
-      parent.stop()
+      stop()
     })
 
     it('two quick undos are both executed, each with its own history id', async () => {

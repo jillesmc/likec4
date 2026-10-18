@@ -287,7 +287,9 @@ export const settleGhosts = () =>
         ? [{ id: g.createdId, position: g.position }]
         : []
     )
-    if (placements.length === 0 && !context.refreshManualLayout) {
+    // New relations and steps are edges of the view, the manual layout gets them too
+    const edgesAdded = settled.some(g => g.change.op === 'add-relation' || g.change.op === 'add-dynamic-step')
+    if (placements.length === 0 && !edgesAdded && !context.refreshManualLayout) {
       return
     }
     enqueue.assign({ refreshManualLayout: false })
