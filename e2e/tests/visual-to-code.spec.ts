@@ -235,7 +235,7 @@ test('US-009: connecting two elements in a dynamic view appends a step', async (
   expect(await readServed()).not.toContain('-> customer.web')
 })
 
-test('review 005: undo of an element dropped in a manual layout view leaves no drift', async ({ page }) => {
+test('E2E-009 (review 005): undo of an element dropped in a manual layout view leaves no drift', async ({ page }) => {
   await page.goto('/view/index/')
   const customer = page.locator('.react-flow__node[data-id="customer"]')
   await expect(customer).toBeVisible()
