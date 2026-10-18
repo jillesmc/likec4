@@ -137,20 +137,39 @@ export const globalCss = defineGlobalStyles({
         height: '5px!',
         transform: 'translate(-50%, -50%)!',
       },
-      // When nodes are connectable (editor), show the source handle on hover to drag a relation
-      '& .react-flow__node:hover .likec4-node-handle-center.source.connectablestart': {
-        // right edge, bottom-center is taken by node action buttons
-        top: '50%!',
+      // When nodes are connectable (editor), the source handle is a "connect" button,
+      // in the row of the node action buttons (bottom), on the right
+      '& .likec4-connect-handle': {
+        top: 'calc(100% - 30px)!',
+        bottom: 'unset!',
         left: 'unset!',
-        right: '-7px!',
-        visibility: 'visible!',
-        width: '14px!',
-        height: '14px!',
-        transform: 'translate(0, -50%)!',
-        borderRadius: '50%',
-        border: '2px solid var(--xy-background-color, white)',
-        background: 'var(--xy-edge-stroke)',
+        right: '12px!',
+        transform: 'none!',
+        width: '28px!',
+        height: '28px!',
+        minWidth: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 'md',
+        border: 'none!',
+        visibility: 'hidden',
+        color: 'var(--likec4-palette-loContrast)',
+        background: 'color-mix(in oklab, var(--likec4-palette-fill) 65%, var(--likec4-palette-stroke))!',
         cursor: 'crosshair',
+        zIndex: 1,
+        '& svg': {
+          width: '16px',
+          height: '16px',
+          pointerEvents: 'none',
+        },
+        _hover: {
+          color: 'var(--likec4-palette-hiContrast)',
+          background: 'color-mix(in oklab, var(--likec4-palette-fill) 50%, var(--likec4-palette-stroke))!',
+        },
+      },
+      '& .react-flow__node:is(:hover, .selected) .likec4-connect-handle': {
+        visibility: 'visible',
       },
     },
     '& :where(.react-flow__node, .react-flow__edge):has([data-likec4-dimmed])': {

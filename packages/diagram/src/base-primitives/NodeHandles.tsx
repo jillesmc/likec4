@@ -1,5 +1,6 @@
 import { nonexhaustive } from '@likec4/core'
 import type { AutoLayoutDirection } from '@likec4/core/types'
+import { IconArrowRight } from '@tabler/icons-react'
 import { Handle, Position, useStore } from '@xyflow/react'
 /**
  * XYFlow requires handles to be defined on nodes.
@@ -42,7 +43,11 @@ export function DefaultHandles({ direction = 'TB' }: { direction?: AutoLayoutDir
         isConnectable={connectable}
         isConnectableStart={connectable}
         isConnectableEnd={connectable}
-        className="likec4-node-handle-center" />
+        // When connectable, the source handle is the "connect" button below the node
+        className={connectable ? 'likec4-connect-handle' : 'likec4-node-handle-center'}
+        {...connectable && { title: 'Drag to another element to connect' }}>
+        {connectable && <IconArrowRight />}
+      </Handle>
       <Handle
         type={'target'}
         position={targetPosition}
