@@ -8,6 +8,7 @@ import {
   FetchLayoutedView,
   FetchProjectsOverview,
   GetLastClickedNode,
+  ModelHistoryReq,
   OnOpenView,
   ReadBootstrapIcon,
   ReadLocalIcon,
@@ -136,6 +137,7 @@ export const useMessenger = defineService(() => {
     handleReadBootstrapIcon: requestHandler(ReadBootstrapIcon),
     handleReadLocalIcon: requestHandler(ReadLocalIcon),
     handleViewChange: requestHandler(ViewChangeReq),
+    handleModelHistory: requestHandler(ModelHistoryReq),
 
     onWebviewCloseMe: notificationHandler(WebviewMsgs.CloseMe),
     onWebviewLocate: notificationHandler(WebviewMsgs.Locate),

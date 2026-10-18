@@ -98,6 +98,25 @@ export const ReadBootstrapIcon: RequestType</* name */ string, ReadLocalIconResu
 
 export const ViewChangeReq = { method: 'webview:change' } as RequestType<
   { projectId: ProjectId; viewId: ViewId; change: ViewChange },
+  | {
+    success: true
+    /**
+     * Id of the change in the undo history of the language server (see {@link ModelHistoryReq})
+     */
+    historyId?: string | undefined
+    /**
+     * Fqn of the created item, if any
+     */
+    created?: string | undefined
+  }
+  | { success: false; error: string }
+>
+
+/**
+ * Request from the webview to undo / redo the latest model change (canvas undo)
+ */
+export const ModelHistoryReq = { method: 'webview:model-history' } as RequestType<
+  { projectId: ProjectId; direction: 'undo' | 'redo'; historyId?: string | undefined },
   { success: true } | { success: false; error: string }
 >
 

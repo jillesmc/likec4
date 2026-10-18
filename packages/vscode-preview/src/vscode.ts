@@ -20,6 +20,7 @@ import {
   FetchLayoutedView,
   FetchProjectsOverview,
   GetLastClickedNode,
+  ModelHistoryReq,
   OnOpenView,
   ReadBootstrapIcon,
   ReadLocalIcon,
@@ -84,11 +85,16 @@ export const ExtensionApi = {
     projectId: ProjectId
     viewId: ViewId
     change: ViewChange
-  }): Promise<
-    | { success: true }
-    | { success: false; error: string }
-  > => {
+  }) => {
     return await messenger.sendRequest(ViewChangeReq, HOST_EXTENSION, params)
+  },
+
+  modelHistory: async (params: {
+    projectId: ProjectId
+    direction: 'undo' | 'redo'
+    historyId?: string | undefined
+  }) => {
+    return await messenger.sendRequest(ModelHistoryReq, HOST_EXTENSION, params)
   },
 
   fetchComputedModel: async (

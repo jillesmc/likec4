@@ -224,6 +224,13 @@ export function useDiagramView() {
   }
 }
 
+async function modelHistory(direction: 'undo' | 'redo', historyId: string | undefined) {
+  const result = await ExtensionApi.modelHistory({ projectId: $projectId.get(), direction, historyId })
+  if (!result.success) {
+    throw new Error(result.error)
+  }
+}
+
 const editorPort: LikeC4EditorCallbacks = {
   fetchView: async (viewId, layout) => {
     const view = await queryClient.fetchQuery({
@@ -242,7 +249,14 @@ const editorPort: LikeC4EditorCallbacks = {
     if (!result.success) {
       throw new Error(result.error)
     }
+    return {
+      historyId: result.historyId,
+      created: result.created,
+    }
   },
+  // Canvas undo / redo of model changes, the language server keeps the history (ADR-004)
+  undoModelChange: (_, historyId) => modelHistory('undo', historyId),
+  redoModelChange: (_, historyId) => modelHistory('redo', historyId),
   ...__HAS_AI && {
     applySemanticLayout: async (viewId) => {
       ExtensionApi.applySemanticLayout(viewId)

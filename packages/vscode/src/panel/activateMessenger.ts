@@ -157,12 +157,37 @@ export function activateMessenger() {
       }
       return {
         success: true,
+        historyId: result.historyId,
+        created: result.created,
       }
     } catch (e) {
       // direct output to bypass telemetry error
       const error = loggable(wrapError(e, 'changeView failed:\n'))
       output.error(error)
       output.show(true)
+      return {
+        success: false,
+        error,
+      }
+    }
+  })
+
+  // Canvas undo / redo of model changes (ADR-004)
+  messenger.handleModelHistory(async ({ projectId, direction, historyId }) => {
+    try {
+      logger.debug`request ${direction} of model change in project ${projectId}`
+      const result = await rpc.modelHistory(direction, { projectId, historyId })
+      if (!result.success) {
+        output.error(result.error)
+        return result
+      }
+      for (const uri of result.modifiedUris) {
+        await vscode.workspace.save(uri)
+      }
+      return { success: true }
+    } catch (e) {
+      const error = loggable(wrapError(e, `${direction} failed:\n`))
+      output.error(error)
       return {
         success: false,
         error,

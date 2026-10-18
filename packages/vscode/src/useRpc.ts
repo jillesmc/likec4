@@ -13,8 +13,10 @@ import {
   GetDocumentTags,
   LayoutView,
   Locate,
+  RedoChange,
   RegisterProject,
   ReloadProjects,
+  UndoChange,
   ValidateLayout,
 } from '@likec4/language-server/protocol'
 import { defineService, useDisposable } from 'reactive-vscode'
@@ -136,7 +138,26 @@ export const useRpc = defineService(() => {
         location: res.location ? client.protocol2CodeConverter.asLocation(res.location) : null,
         // All documents modified by the change (e.g. relation and view include are in different files)
         modifiedUris: (res.modifiedUris ?? []).map(uri => client.protocol2CodeConverter.asUri(uri)),
+        historyId: res.historyId,
+        created: res.created,
         success: res.success,
+      }
+    },
+
+    /**
+     * Undo / redo the latest model change, returns the modified documents
+     */
+    async modelHistory(direction: 'undo' | 'redo', req: UndoChange.Params) {
+      const res = await queue(() => client.sendRequest(direction === 'undo' ? UndoChange.req : RedoChange.req, req))
+      if (!res.success) {
+        return {
+          success: false as const,
+          error: res.code ? `[${res.code}] ${res.error}` : res.error,
+        }
+      }
+      return {
+        success: true as const,
+        modifiedUris: (res.modifiedUris ?? []).map(uri => client.protocol2CodeConverter.asUri(uri)),
       }
     },
 
