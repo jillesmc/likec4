@@ -367,7 +367,7 @@ export class LikeC4ModelChanges {
       }
     }
 
-    const historyId = this.recordHistory(projectId, before)
+    const historyId = this.recordHistory(projectId, before, plan.edits)
 
     return {
       success: true,
@@ -383,7 +383,7 @@ export class LikeC4ModelChanges {
   }
 
   /**
-   * Applies text edits and records them in the history (dev server)
+   * Applies text edits and records them in the history
    */
   protected async applyRecorded(
     edits: Map<string, TextEdit[]>,
@@ -401,12 +401,11 @@ export class LikeC4ModelChanges {
     if (!result.applied) {
       return result
     }
-    return { applied: true, historyId: this.recordHistory(projectId, before) }
+    return { applied: true, historyId: this.recordHistory(projectId, before, edits) }
   }
 
   /**
-   * Undo history of model changes per project.
-   * Only without LSP connection (dev server), editors (VSCode) have their own undo.
+   * Undo history of model changes per project (canvas undo, in the dev server and in VSCode)
    */
   private history = new Map<ProjectId, { undo: HistoryEntry[]; redo: HistoryEntry[] }>()
 
@@ -427,17 +426,19 @@ export class LikeC4ModelChanges {
   public historyMaxSize = HISTORY_MAX_SIZE
 
   /**
-   * Records the change in the history of the project and returns its id (null with LSP connection)
+   * Records the change in the history of the project and returns its id.
+   * Texts after the change are computed from the edits: with LSP connection the documents
+   * are updated by the client asynchronously, so they may not reflect the change yet.
    */
-  protected recordHistory(projectId: ProjectId, before: Map<string, { text: string }>): string | null {
-    if (this.services.shared.lsp.Connection) {
-      return null
-    }
-    const documents = this.services.shared.workspace.LangiumDocuments
+  protected recordHistory(
+    projectId: ProjectId,
+    before: Map<string, { text: string }>,
+    edits: Map<string, TextEdit[]>,
+  ): string {
     const files = [...before].map(([uri, { text }]) => ({
       uri,
       before: text,
-      after: documents.getDocument(URI.parse(uri))?.textDocument.getText() ?? text,
+      after: TextDocument.applyEdits(TextDocument.create(uri, 'likec4', 0, text), edits.get(uri) ?? []),
     }))
     const history = this.historyOf(projectId)
     const id = `h${++this.historySeq}`
@@ -451,14 +452,14 @@ export class LikeC4ModelChanges {
   }
 
   /**
-   * Reverts the latest model change of the project (dev server only)
+   * Reverts the latest model change of the project
    */
   public undo(params: UndoRedoParams): Promise<ChangeView.Res> {
     return this.enqueue(params.projectId, () => this.restore(params, 'undo'))
   }
 
   /**
-   * Re-applies the latest reverted model change of the project (dev server only)
+   * Re-applies the latest reverted model change of the project
    */
   public redo(params: UndoRedoParams): Promise<ChangeView.Res> {
     return this.enqueue(params.projectId, () => this.restore(params, 'redo'))
@@ -468,13 +469,6 @@ export class LikeC4ModelChanges {
     { projectId, historyId }: UndoRedoParams,
     direction: 'undo' | 'redo',
   ): Promise<ChangeView.Res> {
-    if (this.services.shared.lsp.Connection) {
-      return {
-        success: false,
-        code: 'unsupported-in-view',
-        error: 'Use the editor undo',
-      }
-    }
     const project = this.services.shared.workspace.ProjectsManager.ensureProject(projectId as ProjectId)
     const history = this.historyOf(project.id)
     const [from, to] = direction === 'undo' ? [history.undo, history.redo] : [history.redo, history.undo]
@@ -526,6 +520,7 @@ export class LikeC4ModelChanges {
       location: first
         ? { uri: first.uri, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } }
         : null,
+      modifiedUris: entry.files.map(f => f.uri),
       historyId: entry.id,
     }
   }

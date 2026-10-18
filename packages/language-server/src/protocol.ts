@@ -320,8 +320,8 @@ export namespace ChangeView {
 }
 
 /**
- * Request to undo the latest model change made from the editor.
- * Only without LSP client (e.g. dev server), editors have their own undo.
+ * Request to undo the latest model change made from the editor (canvas undo).
+ * With LSP client the restored texts are applied as one workspace edit.
  */
 export namespace UndoChange {
   export type Params = {

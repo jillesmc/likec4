@@ -402,8 +402,8 @@ describe('add-relation: applyChange end-to-end', () => {
     expect(ws.lsp!.applied).toHaveLength(1)
     // issue 007: all modified documents are reported, so the editor can save them
     expect(res.success && [...(res.modifiedUris ?? [])].sort()).toEqual([ws.uri('model.c4'), ws.uri('views.c4')].sort())
-    // no undo history with an LSP client
-    expect(res.success && res.historyId).toBeUndefined()
+    // recorded for the canvas undo, also with an LSP client (ADR-004)
+    expect(res.success && res.historyId).toEqual(expect.any(String))
     expect(Object.keys(ws.lsp!.applied[0]!.edit.changes ?? {}).sort()).toEqual(
       [ws.uri('model.c4'), ws.uri('views.c4')].sort(),
     )

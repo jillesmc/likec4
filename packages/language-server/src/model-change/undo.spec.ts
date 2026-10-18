@@ -29,7 +29,7 @@ const addRelation = {
   change: { op: 'add-relation' as const, source: 'customer' as Fqn, target: 'cloud' as Fqn },
 }
 
-describe('model change history (dev server)', () => {
+describe('model change history', () => {
   it('UT-130 + UT-131: undo restores both files, redo re-applies the change', async () => {
     const ws = await memfsWorkspace(files)
     const original = { model: ws.read('model.c4'), views: ws.read('views.c4') }
@@ -205,13 +205,42 @@ describe('model change history (dev server)', () => {
     expect(ws.read('model.c4')).toContain(`cloud = system 'Cloud 0'`)
   })
 
-  it('IT-009: with LSP client, undo is not supported', async () => {
+  it('UT-134 + IT-009: with LSP client, undo and redo are applied as one workspace edit (ADR-004)', async () => {
+    const ws = await memfsWorkspace(files, { lsp: true })
+    const lsp = ws.lsp!
+    const original = { model: ws.read('model.c4'), views: ws.read('views.c4') }
+    const applied = await ws.apply(addRelation)
+    expect(applied).toMatchObject({ success: true, historyId: expect.any(String) })
+    const changed = { model: ws.read('model.c4'), views: ws.read('views.c4') }
+    expect(changed.views).toContain('include customer -> cloud')
+    expect(lsp.applied).toHaveLength(1)
+
+    const editor = ws.services.likec4.ModelChanges
+    const undone = await editor.undo({ historyId: applied.success ? applied.historyId! : '' })
+    expect(undone).toMatchObject({ success: true })
+    expect(undone.success && [...undone.modifiedUris ?? []].sort()).toEqual(
+      [ws.uri('model.c4'), ws.uri('views.c4')].sort(),
+    )
+    expect(lsp.applied).toHaveLength(2)
+    expect(Object.keys(lsp.applied[1]!.edit.changes ?? {})).toHaveLength(2)
+    expect({ model: ws.read('model.c4'), views: ws.read('views.c4') }).toEqual(original)
+
+    expect(await editor.redo({})).toMatchObject({ success: true })
+    expect(lsp.applied).toHaveLength(3)
+    expect({ model: ws.read('model.c4'), views: ws.read('views.c4') }).toEqual(changed)
+  })
+
+  it('UT-134: with LSP client, a refused undo keeps the entry', async () => {
     const ws = await memfsWorkspace(files, { lsp: true })
     await ws.apply(addRelation)
-    expect(await ws.services.likec4.ModelChanges.undo({})).toEqual({
+    const changed = ws.read('model.c4')
+    ws.lsp!.result = { applied: false, failureReason: 'read-only' }
+    expect(await ws.services.likec4.ModelChanges.undo({})).toMatchObject({
       success: false,
-      code: 'unsupported-in-view',
-      error: 'Use the editor undo',
+      code: 'apply-failed',
     })
+    expect(ws.read('model.c4')).toEqual(changed)
+    ws.lsp!.result = { applied: true }
+    expect(await ws.services.likec4.ModelChanges.undo({})).toMatchObject({ success: true })
   })
 })
