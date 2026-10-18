@@ -17,15 +17,16 @@ test('E2E-001: connecting two elements writes a relation to the sources', async 
   // The editor starts read-only, unlock it
   await page.locator('button:has(svg.tabler-icon-lock)').click()
 
-  // Drag from the source handle (visible on hover) and release over the target node
+  // Drag from the "connect" button (visible on hover) and release anywhere over the target node
   await customer.hover()
-  const handle = customer.locator('.react-flow__handle.source')
+  const handle = customer.locator('.likec4-connect-handle')
   await expect(handle).toBeVisible()
   const from = (await handle.boundingBox())!
   const to = (await cloud.boundingBox())!
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+  // near the top-left corner, away from the node center
+  await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
   await page.mouse.up()
 
   // Ghost is shown until the view is updated, then the real edge
