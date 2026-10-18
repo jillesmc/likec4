@@ -154,6 +154,36 @@ test('US-004 AC-4: excluding in a view with manual layout updates the snapshot w
   await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
 })
 
+test('US-001 EC-11: connecting in a view with manual layout updates the snapshot without drift', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  // Move a node to save a manual layout snapshot
+  const box = (await customer.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect.poll(() => hasManualLayout('index'), { timeout: 10_000 }).toBe(true)
+  await expect.poll(() => readServed('.likec4/index.likec4.snap')).toContain('edges: []')
+
+  await customer.hover()
+  const from = (await customer.locator('.likec4-connect-handle').boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
+  await page.mouse.up()
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`-> cloud`)
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).not.toContain('edges: []')
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1)
+  await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+})
+
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
   const fixture = await readServed()
   await page.goto('/view/index/')
