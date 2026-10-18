@@ -18,8 +18,8 @@ const addNode = (parent: string | null, kind: string, title: string) =>
     title,
   })
 
-const addInstance = (parent: string, element: string) =>
-  apply({ op: 'add-instance', parent: parent as DeploymentFqn, element: element as Fqn })
+const addInstance = (parent: string, element: string, name?: string) =>
+  apply({ op: 'add-instance', parent: parent as DeploymentFqn, element: element as Fqn, ...name && { name } })
 
 const modelFile = `
   specification {
@@ -135,6 +135,13 @@ describe('add-instance', () => {
     await ws.apply(addInstance('prod.worker', 'cloud.api'))
     await ws.apply(addInstance('prod.worker', 'cloud.api'))
     expect(ws.read('deployment.c4')).toContain(`      instanceOf cloud.api\n      api2 = instanceOf cloud.api\n`)
+  })
+
+  it('UT-206 (server): an explicit name equal to the element name keeps the short form', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': modelFile, 'deployment.c4': deployment })
+    await ws.apply(addInstance('prod.worker', 'cloud.api', 'api'))
+    await ws.apply(addInstance('prod.worker', 'cloud.api', 'apiEu'))
+    expect(ws.read('deployment.c4')).toContain(`      instanceOf cloud.api\n      apiEu = instanceOf cloud.api\n`)
   })
 
   it('UT-145: rejects missing element', async () => {

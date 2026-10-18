@@ -1,6 +1,7 @@
 import { type ProjectId, type ViewChange, _type, DeploymentFqn, Fqn, nonNullable } from '@likec4/core'
 import type { LikeC4Model } from '@likec4/core/model'
 import type { UnknownParsed } from '@likec4/core/types'
+import { deriveIdentifier, isValidIdentifier } from '@likec4/core/utils'
 import type { ViewLocateResult } from '../model'
 import type { LikeC4Services } from '../module'
 import {
@@ -13,7 +14,6 @@ import {
   quote,
 } from './_anchors'
 import { findDeploymentDefinition, fqnRefText } from './_lookup'
-import { deriveIdentifier, isValidIdentifier } from './_naming'
 import { isDeploymentElementVisible } from './_visibility'
 import { ModelChangeError } from './ModelChangeError'
 
@@ -157,7 +157,8 @@ export function addInstance(
   const implicitName = elementModel.name
   const name = resolveName(change.name, () => deriveIdentifier(implicitName, implicitName, taken), taken, fqnOf)
   const ref = `instanceOf ${fqnRefText(element)}`
-  const line = change.name === undefined && name === implicitName ? ref : `${name} = ${ref}`
+  // The short form names the instance after the element
+  const line = name === implicitName ? ref : `${name} = ${ref}`
   const fqn = fqnOf(name)
   const placed = placeLine(services, projectId, lookup, parent, line)
   const visible = isDeploymentElementVisible(model, lookup.view.id, { id: fqn, element, style: {} })
