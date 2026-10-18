@@ -1,7 +1,7 @@
 const IDENTIFIER = /^([a-zA-Z]|_+[a-zA-Z0-9])[-\w]*$/
 
 /**
- * Whether the name is a valid DSL identifier
+ * Whether the name is a valid DSL identifier (element, deployment node or instance name)
  */
 export function isValidIdentifier(name: string): boolean {
   return IDENTIFIER.test(name)

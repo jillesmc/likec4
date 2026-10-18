@@ -1,6 +1,7 @@
 import { type ProjectId, type ViewChange, _type, Fqn, nonNullable } from '@likec4/core'
 import type { LikeC4Model } from '@likec4/core/model'
 import type { UnknownParsed } from '@likec4/core/types'
+import { deriveIdentifier, isValidIdentifier } from '@likec4/core/utils'
 import type { ViewLocateResult } from '../model'
 import type { LikeC4Services } from '../module'
 import {
@@ -13,7 +14,6 @@ import {
   quote,
 } from './_anchors'
 import { findElementDefinition } from './_lookup'
-import { deriveIdentifier, isValidIdentifier } from './_naming'
 import { isElementVisible } from './_visibility'
 import { ModelChangeError } from './ModelChangeError'
 

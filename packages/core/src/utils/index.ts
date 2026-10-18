@@ -35,6 +35,8 @@ export {
 
 export { getOrCreate } from './getOrCreate'
 
+export { deriveIdentifier, isValidIdentifier } from './identifier'
+
 // Re-export for backwards compatibility
 export {
   hasChildren,

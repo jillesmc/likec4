@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveIdentifier, isValidIdentifier } from './_naming'
+import { deriveIdentifier, isValidIdentifier } from './identifier'
 
 describe('deriveIdentifier', () => {
   it('UT-020: camelCase from title', () => {
