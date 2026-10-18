@@ -1,12 +1,15 @@
 import type { XYPoint } from '@likec4/core/geometry'
 import { type DeploymentKind, type ElementKind, type ViewChange, DeploymentFqn, Fqn } from '@likec4/core/types'
+import { deriveIdentifier } from '@likec4/core/utils'
 import { ViewportPortal } from '@xyflow/react'
-import { type DragEvent, type ReactNode, useState } from 'react'
+import { type DragEvent, type ReactNode, useMemo, useState } from 'react'
+import { useOptionalLikeC4Model } from '../context/LikeC4ModelContext'
 import { useCallbackRef } from '../hooks/useCallbackRef'
 import { useXYFlow } from '../hooks/useXYFlow'
 import { type ConnectableNode, innermostNode, modelFqnOf } from './connect'
 import { PALETTE_DRAG_TYPE } from './ElementPalette'
-import { TitlePrompt } from './TitlePrompt'
+import { takenNames } from './identifier'
+import { type IdentifierField, TitlePrompt } from './TitlePrompt'
 
 /**
  * Palette item to deploy a model element (`instanceOf`)
@@ -53,7 +56,38 @@ export function useCanvasDrop(
   popover: ReactNode
 } {
   const xyflow = useXYFlow()
+  const model = useOptionalLikeC4Model()
   const [drop, setDrop] = useState<PendingDrop | null>(null)
+
+  // Identifier asked with the title, prefilled with the suggestion (without model, the server derives it)
+  const identifier = useMemo((): IdentifierField | undefined => {
+    if (!drop || !model) {
+      return undefined
+    }
+    const label = 'Identifier'
+    switch (drop.op) {
+      case 'add-element': {
+        const taken = takenNames(model, { model: 'element', parent: drop.parent })
+        return { label, taken, suggest: title => deriveIdentifier(title, drop.kind, taken) }
+      }
+      case 'add-deployment-node': {
+        const taken = takenNames(model, { model: 'deployment', parent: drop.parent })
+        return { label, taken, suggest: title => deriveIdentifier(title, drop.kind, taken) }
+      }
+      case 'add-instance': {
+        const taken = takenNames(model, { model: 'deployment', parent: drop.parent })
+        return {
+          label,
+          taken,
+          // named after the element to deploy
+          suggest: value => {
+            const element = model.findElement(value)
+            return element ? deriveIdentifier(element.name, element.name, taken) : ''
+          },
+        }
+      }
+    }
+  }, [drop, model])
 
   const onDragOver = useCallbackRef((event: DragEvent) => {
     if (event.dataTransfer.types.includes(PALETTE_DRAG_TYPE)) {
@@ -94,20 +128,24 @@ export function useCanvasDrop(
     }
   })
 
-  const confirm = (value: string) => {
+  const confirm = (value: string, name?: string) => {
     if (!drop) {
       return
     }
     setDrop(null)
+    const named = name ? { name } : {}
     switch (drop.op) {
       case 'add-element':
-        onAdd({ op: 'add-element', parent: drop.parent, kind: drop.kind, title: value }, drop.position)
+        onAdd({ op: 'add-element', parent: drop.parent, kind: drop.kind, title: value, ...named }, drop.position)
         break
       case 'add-deployment-node':
-        onAdd({ op: 'add-deployment-node', parent: drop.parent, kind: drop.kind, title: value }, drop.position)
+        onAdd(
+          { op: 'add-deployment-node', parent: drop.parent, kind: drop.kind, title: value, ...named },
+          drop.position,
+        )
         break
       case 'add-instance':
-        onAdd({ op: 'add-instance', parent: drop.parent, element: Fqn(value) }, drop.position)
+        onAdd({ op: 'add-instance', parent: drop.parent, element: Fqn(value), ...named }, drop.position)
         break
     }
   }
@@ -122,6 +160,7 @@ export function useCanvasDrop(
               initialTitle=""
               confirmLabel="Add"
               options={config.viewType === 'deployment' ? config.elements : []}
+              {...identifier && { identifier }}
               onCancel={() => setDrop(null)}
               onConfirm={confirm}
             />
@@ -131,6 +170,7 @@ export function useCanvasDrop(
               label={`Title of the new ${drop.kind}`}
               initialTitle={`New ${drop.kind}`}
               confirmLabel="Add"
+              {...identifier && { identifier }}
               onCancel={() => setDrop(null)}
               onConfirm={confirm}
             />
