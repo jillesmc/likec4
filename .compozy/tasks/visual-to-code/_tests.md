@@ -46,13 +46,13 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
 | US-002 EC-9, US-011 EC-1/2 | unknown-kind, invalid-name, name-collision | UT-042–UT-044 | — | — |
 | US-003 | retitle variants | UT-100–UT-105 | — | — |
 | US-004 | exclude nodes/edges/multi/deployment | UT-110–UT-113 | IT-006 | E2E-003 |
-| US-004 EC-2 | no Del in dynamic views | UT-063 | — | — |
+| US-004 EC-2 | no Del on nodes in dynamic views (superseded for steps by US-016) | UT-063 | — | — |
 | US-005 AC-1/2, EC-3 | reference listing blocks delete | UT-073, UT-120 | — | — |
 | US-005 AC-3/4 | remove element / relation statement | UT-121, UT-122 | — | — |
 | US-005 EC-1, EC-4 | menu absent | UT-074 | — | — |
 | US-005 EC-2 | server-side has-references | UT-123 | — | — |
 | US-006 | dev-server undo/redo | UT-130–UT-133 | IT-007 | E2E-004 |
-| US-006 EC-4 | VSCode undo unsupported | — | IT-009 | — |
+| US-006 EC-4 / US-018 | undo over an LSP connection (ADR-004; replaces "unsupported") | UT-134 | IT-009 | manual (VSCode) |
 | US-007 | deployment node placement | UT-140–UT-142 | — | — |
 | US-008 | instanceOf | UT-143–UT-145 | — | — |
 | US-009 | dynamic step append | UT-150–UT-152 | — | — |
@@ -60,6 +60,13 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
 | US-011 AC-2 | error code shape | UT-045 | IT-010 | — |
 | US-011 AC-3 | serialised per project | — | IT-008 | — |
 | Ghost lifecycle (S2) | pending → confirmed / rejected | UT-065, UT-066 | — | E2E-001 |
+| US-012 | identifier suggestion, follow/override, validation | UT-200–UT-206 | — | E2E-006 |
+| US-013 | kind + technology on connect | UT-210–UT-214 | — | E2E-007 |
+| US-014 | relation retitle | UT-220–UT-225 | — | — |
+| US-015 | step position | UT-230–UT-233 | — | — |
+| US-016 | step removal | UT-240–UT-245 | — | E2E-008 |
+| US-017 | manual-layout notice | UT-250–UT-252 | — | — |
+| US-018 AC-3 | canvas undo keeps the snapshot in sync | UT-260 | — | E2E-009 (dev server); manual (VSCode) |
 | Existing ops unchanged | change-element-style, autolayout, property, snapshot | existing `changeElementStyle.spec.ts`, `viewChange.spec.ts`, `state.sync-queue.spec.ts` | — | existing `manual-layout-views.spec.ts` |
 
 ## Unit Tests
@@ -203,6 +210,72 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
 - **UT-152** (boundary): a view with no steps → the step is inserted before the first rule (or
   before `}` if no rules).
 
+### Amendment of 2026-10-18 (US-012 – US-018)
+
+#### Identifier — `@likec4/core/utils` `identifier.ts`, drop popover (US-012)
+
+- **UT-200** (happy): the existing `_naming.spec.ts` cases pass unchanged against the core module.
+- **UT-201** (happy): the popover prefills `newSystem` for kind `system`, and typing the title
+  `Payment Service` updates it to `paymentService`.
+- **UT-202** (state): after the user edits the identifier, title changes do not update it; clearing
+  it resumes following.
+- **UT-203** (happy): focusing the identifier selects all its text.
+- **UT-204** (error): `9lives` → `Invalid identifier`, confirm disabled; a sibling's name →
+  `Already used by a sibling`, confirm disabled.
+- **UT-205** (happy): Enter sends `add-element` with `name` set to the field's value.
+- **UT-206** (happy): instance popover suggests the element name, `api2` when `api` is taken.
+
+#### add-relation kind/technology — `addRelation.ts`, connect popover (US-013)
+
+- **UT-210** (happy): `kind: 'async'` → `-[async]-> cloud.queue`.
+- **UT-211** (happy): `technology: 'Kafka'` → a body with `technology 'Kafka'`; with a title →
+  `-> cloud.queue 'publishes' {` / `technology 'Kafka'` / `}`.
+- **UT-212** (error): undeclared kind → `unknown-kind`, no write.
+- **UT-213** (happy): the popover lists `none` + the declared relationship kinds, and has no kind
+  field when none are declared.
+- **UT-214** (happy): Enter with empty fields sends `add-relation` without `title`, `kind`,
+  `technology`; Esc sends nothing and removes the ghost.
+
+#### Relation retitle — `changeTitle.ts`, edge label editor (US-014)
+
+- **UT-220** (happy): positional title replaced.
+- **UT-221** (happy): relation without title → the title is inserted after the target reference
+  (also when tags or a body follow).
+- **UT-222** (happy): `title` property in the body is updated.
+- **UT-223** (happy): empty title → the literal or property is removed.
+- **UT-224** (error): relation from another project → `read-only-target`; unknown id → `not-found`.
+- **UT-225** (happy): double-click on the label of an edge with one relation opens the editor;
+  with several relations it does not.
+
+#### Dynamic steps — `addDynamicStep.ts`, `removeDynamicStep.ts` (US-015, US-016)
+
+- **UT-230** (happy): `beforeStep: 1` → the step is inserted on its own line before the 2nd
+  top-level statement, with its indentation.
+- **UT-231** (boundary): `beforeStep` ≥ number of steps → appended at the end.
+- **UT-232** (happy): the connect popover lists `At the end` + one entry per top-level step.
+- **UT-233** (boundary): no steps → no position field.
+- **UT-240** (happy): `step-02` (a single top-level step) → its line is removed.
+- **UT-241** (happy): a step inside `par { … }` → only its line is removed, the block stays.
+- **UT-242** (happy): a step in an `alt` branch and in a `try`/`catch` block → removed.
+- **UT-243** (error): a step of a chain → `unsupported-in-view` with the chain message.
+- **UT-244** (error): unknown step path → `not-found`.
+- **UT-245** (happy): `Del` on a selected step edge in a dynamic view sends `remove-dynamic-step`;
+  on a node it sends nothing.
+
+#### Manual-layout notice (US-017)
+
+- **UT-250** (happy): palette in a view with a snapshot shows the notice; with auto layout it does
+  not.
+- **UT-251** (happy): the first drop in a manual view shows the info toast; the second does not.
+- **UT-252** (boundary): read-only → no notice.
+
+#### Undo with an LSP connection (US-018, ADR-004)
+
+- **UT-134** (happy): with the faked connection, apply → undo → redo: each step sends one
+  `applyEdit`, returns `modifiedUris`, and the file texts match before/after.
+- **UT-260** (state): editor actor, manual-layout view: undo of a model entry is followed by a
+  snapshot refresh (the node is removed from the snapshot) in the same Ctrl+Z.
+
 ## Integration Tests
 
 ### ModelChanges.applyChange end-to-end
@@ -227,7 +300,9 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
   `redoChange` round-trips.
 - **IT-008**: concurrency — fire two `applyChange` calls without awaiting → the second starts after
   the first resolves (invariant 2), and both relations are present.
-- **IT-009**: `likec4/undo-change` with an LSP connection → `unsupported-in-view`.
+- **IT-009**: `likec4/undo-change` with an LSP connection → one `WorkspaceEdit` restoring the
+  texts, `success: true`, `modifiedUris` set (ADR-004; replaces the former `unsupported-in-view`
+  case).
 - **IT-010**: vite `updateView` with a rejected op throws `Error` whose message starts with
   `[not-found]`.
 
@@ -248,5 +323,14 @@ project), with the fixture restored before each test.
 - **E2E-005** (US-010): `likec4 build` of the fixture, served statically → no `.react-flow__handle`
   in edit mode, no palette, and `Del` leaves the DOM unchanged.
 
-VSCode (US-001 AC-2, US-006 EC-4): a manual verification checklist in the slice-1 task, using the
+- **E2E-006** (US-012): drop `system` → type title `Payment Service` → Tab to the identifier →
+  type `payments` → Enter → `model.c4` contains `payments = system 'Payment Service'`.
+- **E2E-007** (US-013): connect `customer` → `cloud`, choose a kind and type a technology → Enter →
+  `model.c4` contains `-[<kind>]-> cloud` with `technology '<value>'`.
+- **E2E-008** (US-016): open the dynamic fixture view → select step 1's edge → `Del` → the step's
+  line is gone from `dynamic.c4`.
+- **E2E-009** (US-018 AC-3, dev server): manual-layout view → drop a new element → Ctrl+Z → the
+  element is gone from `model.c4`, the snapshot has no node for it, and no drift badge is shown.
+
+VSCode (US-001 AC-2, US-018): a manual verification checklist in the slice-1 task, using the
 `vscode-extension-screenshot-evidence` skill for evidence.

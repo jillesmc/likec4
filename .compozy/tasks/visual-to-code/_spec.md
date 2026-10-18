@@ -5,6 +5,7 @@ status: draft
 created: 2026-10-12
 source: docs/requirements/visual-to-code/epic.md (decisions D1–D13 agreed with owner)
 baseline: main @ 3945a59aa
+amended: 2026-10-18 (owner answers to Q2–Q8, slices 8–13)
 follow_up: visual-to-code-rename-move (phase 2, separate spec)
 ---
 
@@ -36,7 +37,13 @@ follow_up: visual-to-code-rename-move (phase 2, separate spec)
 - An item created on the canvas is always visible in the view it was created in, without anyone
   touching the view's existing predicates.
 - A gesture that would leave the sources invalid is refused, and the sources stay unchanged.
-- In `likec4 start`, model edits can be undone and redone from the canvas.
+- Model edits can be undone and redone from the canvas, in `likec4 start` and in the VSCode preview,
+  and the manual-layout snapshot stays in sync with the undone edit.
+- New identifiers are confirmed by the user: a suggestion is prefilled and can be accepted with
+  Enter or replaced by typing, without deleting it first.
+- A new relation can get a kind and a technology at creation, and its title can be edited later.
+- In dynamic views a new step can be inserted at a chosen position, and `Del` removes a step.
+- In views with a manual layout, the user is told that new elements stay where they are dropped.
 - Static builds (`likec4 build`) stay read-only. No editing affordance appears.
 
 ## User Stories
@@ -49,18 +56,22 @@ follow_up: visual-to-code-rename-move (phase 2, separate spec)
 - US-009: dynamic views
 - US-010: read-only surfaces
 - US-011: programmatic use (integrator persona)
+- US-012 – US-018: owner decisions of 2026-10-18 (identifier prompt, relation kind/technology,
+  relation retitle, step position, step removal, manual-layout notice, canvas undo in VSCode)
 
 [Full user stories](_user_stories.md)
 
 ## Core Features
 
-1. **Connect** (`onConnect`): element view → relation. Dynamic view → step appended to the view.
+1. **Connect** (`onConnect`): element view → relation, with a popover for title, kind and
+   technology (rule 16). Dynamic view → step, with a popover for title and position (rule 17).
 2. **Palette + drop**: lists only kinds declared in `specification {}`. Dropping creates an element
    or a deployment node, or an `instanceOf` in deployment views. The container under the cursor
-   becomes the parent.
-3. **Inline retitle**: double-click a node title, edit, Enter commits, Esc cancels.
+   becomes the parent. The popover asks for the title and the identifier (rule 5).
+3. **Inline retitle**: double-click a node title or a relation label, edit, Enter commits, Esc
+   cancels.
 4. **Exclude** (`Del`): writes an `exclude` rule into the current view. This replaces today's
-   snapshot-only node deletion.
+   snapshot-only node deletion. In dynamic views `Del` on a step removes the step (rule 8).
 5. **Delete from model**: context-menu action with a confirmation dialog listing references. It is
    blocked while blocking references exist.
 6. **Ghost feedback**: pending items render dashed until the recomputed view arrives. On rejection
@@ -68,8 +79,10 @@ follow_up: visual-to-code-rename-move (phase 2, separate spec)
 7. **Auto-include**: when a created item would not be visible through the view's predicates, an
    explicit `include` is appended in the same edit.
 8. **Manual-layout continuity**: in views with a manual-layout snapshot, a new node lands at the
-   drop position and the snapshot is updated. No drift is reported.
-9. **Dev-server undo/redo**: model edits join the canvas Ctrl+Z / Ctrl+Shift+Z history.
+   drop position and the snapshot is updated. No drift is reported. A notice tells the user that
+   new elements stay where they are dropped and must be positioned by hand (rule 18).
+9. **Canvas undo/redo**: model edits join the canvas Ctrl+Z / Ctrl+Shift+Z history, in the dev
+   server and in the VSCode preview (ADR-004).
 
 Features 6–8 are cross-cutting and apply to features 1–5.
 
@@ -86,10 +99,18 @@ Features 6–8 are cross-cutting and apply to features 1–5.
 4. **Placement of new relations (ADR-001)**: inside the source element's definition block, as
    `-> target`. If the source is not editable (defined in another project or imported), the
    relation goes in the `model {}` of the view's file as `source -> target`.
-5. **Identifiers**: when the gesture supplies no name, the identifier is derived from the title as
-   camelCase ASCII matching `/([a-zA-Z]|_+[a-zA-Z0-9])[-\w]*/`. On a collision with a sibling, the
-   numeric suffixes `2`, `3`, … are appended. A title producing an empty slug falls back to the
-   kind name. A supplied name that does not match the grammar is rejected (`invalid-name`).
+5. **Identifiers (Q2, owner 2026-10-18)**: the drop popover asks for the identifier of a new
+   element, deployment node or instance, prefilled with a suggestion. The suggestion is derived from
+   the title as camelCase ASCII matching `/([a-zA-Z]|_+[a-zA-Z0-9])[-\w]*/`; for an instance, from
+   the element's name. On a collision with a sibling, the numeric suffixes `2`, `3`, … are appended.
+   A title producing an empty slug falls back to the kind name.
+   - The suggestion follows the title while the user has not edited the identifier.
+   - Focusing the identifier field selects its whole text, so typing replaces it; Enter in any
+     field accepts the form as it is.
+   - The suggestion is computed client-side with the same function the server uses (moved to
+     `@likec4/core`). The server stays authoritative: a name that does not match the grammar is
+     rejected (`invalid-name`), a taken one is rejected (`name-collision`). A request without
+     `name` still derives one (integrators, US-011).
 6. **Kinds (D10)**: only kinds present in `specification {}` are offered or accepted
    (`unknown-kind`). The canvas never writes to `specification`.
 7. **Visibility (D5)**: before applying, the server predicts whether the new item is visible in the
@@ -97,7 +118,13 @@ Features 6–8 are cross-cutting and apply to features 1–5.
    Existing predicates are never modified.
 8. **Exclude (D6)**: `Del` on nodes writes `exclude <fqn>` for each selected node. On edges it
    writes `exclude <sourceFqn> -> <targetFqn>`. The model is not touched. Dynamic views have no
-   `exclude` rule in the grammar, so `Del` is absent there in phase 1 (Q5).
+   `exclude` rule in the grammar; there `Del` on a step edge removes that step from the view
+   (Q5, owner 2026-10-18), and `Del` on a node does nothing.
+   - The step is located by its step id (`step-03`, `step-02:par.01`). A single `a -> b` step,
+     top-level or inside a block (`par`, `alt` branch, `try`, …), is removed as a whole statement.
+   - A step that is part of a series (`a -> b -> c`) is refused (`unsupported-in-view`, message
+     `Steps of a chain cannot be removed from the canvas`).
+   - A block left empty by the removal stays (an empty block is valid DSL).
 9. **Delete from model (D6, confirmed by the owner on 2026-10-13)**:
    - Elements and deployment nodes are blocked while any reference exists: relations (either end),
      nested children, `instanceOf`, `extend`, dynamic steps, and view rules in *any* view
@@ -106,7 +133,11 @@ Features 6–8 are cross-cutting and apply to features 1–5.
    - An edge that aggregates more than one relation offers no "Delete from model".
 10. **Retitle**: updates the existing title literal or `title:` property. Without either, it inserts
     the positional title after the identifier/kind. The same title is a no-op (no write). Quotes are
-    escaped.
+    escaped. Relations can be retitled too (Q6, owner 2026-10-18): the target is the relation id,
+    the positional title goes right after the target reference, and only an edge backed by exactly
+    one relation defined in this project offers it (other edges: `read-only-target`). An empty
+    relation title removes the title literal or property. Step titles in dynamic views are not
+    covered.
 11. **Validity guard**: after applying, if any touched document gains new errors (parse, linking or
     validation errors with severity error), the change is reverted and the gesture is rejected
     (`invalid-result`).
@@ -115,11 +146,31 @@ Features 6–8 are cross-cutting and apply to features 1–5.
     no document-version token.
 13. **Read-only surfaces**: without an editor port (static build, `ViewReact`), no editing
     affordance is rendered. It is absent, not disabled.
-14. **Undo (D13, ADR-003)**: in `likec4 start` the server keeps an in-memory, per-project stack of
-    inverse edits. Undo is refused (`stale-undo`) when the affected file changed since that edit.
-    The stack is lost on restart. In VSCode, canvas Ctrl+Z stays layout-only. Model edits are undone
-    with VSCode's text undo on the modified file.
+14. **Undo (D13, ADR-003, ADR-004)**: the server keeps an in-memory, per-project stack of the
+    texts before and after each model edit, in `likec4 start` and in VSCode. Canvas Ctrl+Z /
+    Ctrl+Shift+Z undo and redo model edits in both hosts. Undo is refused (`stale-undo`) when the
+    affected file changed since that edit. The stack is lost on restart.
+    - In VSCode the undo is applied as a `WorkspaceEdit` and saved, like any canvas change. The
+      `.c4` editor's own undo keeps working as an alternative, but that path does not touch the
+      manual-layout snapshot (the drift it causes is reported as today).
+    - Undoing or redoing a model edit in a manual-layout view also brings the snapshot back in sync
+      in the same Ctrl+Z (the node is removed from / restored to the snapshot).
 15. **No auto-commit**: git is never touched.
+16. **Relation kind and technology (Q4, owner 2026-10-18)**: connecting two elements in an element
+    view opens a popover with title (optional), kind (optional, only kinds declared in
+    `specification {}`) and technology (optional). Enter with nothing filled creates the plain
+    relation. The relation is written as `-[kind]-> target 'title'`, and the technology as a
+    `technology '…'` property in a body (the positional technology needs a description before it,
+    which the canvas does not ask for). An undeclared kind is rejected (`unknown-kind`).
+17. **Step position (Q3, owner 2026-10-18)**: connecting in a dynamic view opens a popover with
+    title (optional) and position. The default is "At the end" (after the last top-level step);
+    the other options are "Before step N" for each top-level step. Positions inside blocks are not
+    offered.
+18. **Manual-layout notice (Q7, owner 2026-10-18)**: when editing is enabled in a view that has a
+    manual-layout snapshot, the palette shows a notice: `This view has a manual layout. New
+    elements are placed where you drop them; move them to where they belong.` The first new element
+    dropped in that view during the session also shows an info toast with the same text. No new
+    drift reason is added.
 
 ## User Experience
 
@@ -159,24 +210,30 @@ Features 6–8 are cross-cutting and apply to features 1–5.
 - Dedicated support and tests for `apps/playground`. New ops are forwarded unchanged by its port,
   and whether they work there is incidental.
 - New MCP tools in `packages/mcp`.
-- Editing relation titles, kinds or technology after creation (Q4, Q6).
+- Changing the kind or technology of an existing relation (only its title, rule 10).
+- Editing step titles, kinds or positions of existing steps in dynamic views; inserting a step
+  inside a block.
+- Keeping the manual-layout snapshot in sync when a model edit is undone with the `.c4` editor's
+  own undo in VSCode (the canvas undo does, rule 14).
+
+## Resolved Questions
+
+Answered by the owner on 2026-10-18:
+
+- **Q2 — naming**: ask for the identifier, prefilled with the derived suggestion, easy to accept
+  or overwrite → rule 5, US-012.
+- **Q3 — dynamic step order**: at the end by default, with a position choice → rule 17, US-015.
+- **Q4 — relation kind/technology on connect**: popover now → rule 16, US-013.
+- **Q5 — `Del` in dynamic views**: `Del` on a step removes the step → rule 8, US-016.
+- **Q6 — relation title edit**: in scope → rule 10, US-014.
+- **Q7 — drift**: no new drift reason; warn the user that new elements in a manual-layout view must
+  be positioned by hand → rule 18, US-017.
+- **Q8 — VSCode atomicity**: canvas Ctrl+Z must undo model edits in VSCode too and keep the
+  snapshot in sync → rule 14, ADR-004, US-018. Snapshots keep their filesystem write.
 
 ## Open Questions
 
-- **Q2 — naming**: this spec defaults to "derive from title" (rule 5). Confirm, or require an
-  explicit identifier prompt.
-- **Q3 — dynamic step order**: defaults to "append at the end of the top-level steps". Confirm.
-- **Q4 — relation kind/technology on connect**: defaults to none (plain `->`). A popover is
-  post-MVP.
-- **Q5 — `Del` in dynamic views**: no `exclude` exists there. The default is no `Del`. Alternative:
-  `Del` on a step removes the step.
-- **Q6 — relation title edit**: out of scope by default. Confirm.
-- **Q7 — drift (AGENTS.md "ask the owner")**: this spec adds **no** new drift reason. Gestures in
-  manual-layout views update the snapshot, so `nodes-added` / `removed` never appear. Confirm that
-  is the intended drift behaviour.
-- **Q8 — VSCode atomicity**: the model edit is one undoable `WorkspaceEdit`, but the manual-layout
-  snapshot is written via the filesystem. Undoing the text in VSCode leaves the snapshot with an
-  extra node, which shows as drift. Accept, or route snapshots through `WorkspaceEdit`?
+None.
 
 ---
 
@@ -292,7 +349,7 @@ export namespace ViewChange {
     name?: string
   }
 
-  /** Appended at the end of the top-level steps (Q3) */
+  /** Appended at the end of the top-level steps, or before `beforeStep` (rule 17) */
   export interface AddDynamicStep {
     op: 'add-dynamic-step'
     source: scalar.Fqn
@@ -337,6 +394,43 @@ export type ViewChangeErrorCode =
   | 'stale-undo'
 ```
 
+Amendment of 2026-10-18 (additive, slices 8–13):
+
+```ts
+export namespace ViewChange {
+  export interface AddRelation {
+    // ...as above
+    /** Relationship kind declared in specification (rule 16) */
+    kind?: scalar.RelationshipKind
+    /** Written as a `technology` property in the relation body (rule 16) */
+    technology?: string
+  }
+
+  export interface AddDynamicStep {
+    // ...as above
+    /** 0-based index among the top-level steps to insert before; at the end when omitted (rule 17) */
+    beforeStep?: number
+  }
+
+  export interface ChangeTitle {
+    op: 'change-title'
+    /** Element / deployment fqn, or a relation (rule 10) */
+    target: scalar.Fqn | scalar.DeploymentFqn | { relation: scalar.RelationId }
+    title: string
+  }
+
+  /** Remove a step from a dynamic view (rule 8) */
+  export interface RemoveDynamicStep {
+    op: 'remove-dynamic-step'
+    step: scalar.StepPath
+  }
+}
+```
+
+`deriveIdentifier` / `isValidIdentifier` move from `language-server/src/model-change/_naming.ts`
+to `@likec4/core` (planned: `packages/core/src/utils/identifier.ts`, exported from
+`@likec4/core/utils`), so the drop popover computes the same suggestion as the server.
+
 Placement in the view: `ViewChange` ops stay view-scoped (`viewId` in `ChangeView.Params`), which
 D5 and the include edit require.
 
@@ -350,7 +444,7 @@ D5 and the include edit require.
 ```ts
 export interface LikeC4EditorCallbacks {
   // existing: applySemanticLayout?, fetchView, handleChange
-  /** Revert the latest model edit. Present only where canvas undo of model edits is supported (dev server). */
+  /** Revert the latest model edit. Present where canvas undo of model edits is supported (dev server, VSCode since ADR-004). */
   undoModelChange?: undefined | ((viewId: t.ViewId) => Promise<void>)
   redoModelChange?: undefined | ((viewId: t.ViewId) => Promise<void>)
 }
@@ -384,8 +478,9 @@ which `applyModelChange` converts into `{ success: false, code, error }`.
 
 - LSP `likec4/change-view` (existing): accepts the new ops. Failures return
   `{ success: false, error, code }`.
-- LSP `likec4/undo-change`, `likec4/redo-change` (new): used by the vite plugin only. With an LSP
-  connection (VSCode) they return `{ success: false, code: 'unsupported-in-view' }`.
+- LSP `likec4/undo-change`, `likec4/redo-change` (new): used by the vite plugin and, since
+  ADR-004, by the VSCode extension on behalf of the preview. With an LSP connection the restored
+  texts are applied as one `WorkspaceEdit` and the extension saves the modified documents.
 - vite RPC `updateView` (existing, unchanged signature), `undoChange`, `redoChange` (new, in
   `src/rpc/protocol.ts`, `src/rpc/functions/`, wired in `src/rpc/rpc.ts`). They throw on failure.
 
@@ -408,7 +503,13 @@ None outside the repository.
 | `vscode-preview/src/state.ts` `handleChange` | modified | Throw when `success: false`. Low | — |
 | `likec4-spa/pages/ViewEditor.tsx` | modified | Wire `undoModelChange` / `redoModelChange`. Low | — |
 | `apps/playground` | unaffected (checked) | Forwards ops to its LSP and ignores snapshot ops | None (non-goal) |
-| `core/manual-layout/*` drift | unaffected (pending Q7) | No new drift reasons. Gestures keep snapshots in sync | Confirm Q7 |
+| `core/manual-layout/*` drift | unaffected (Q7 resolved) | No new drift reasons. Gestures and canvas undo keep snapshots in sync | — |
+| `language-server/model-change/_naming.ts` | **moved** | `deriveIdentifier` / `isValidIdentifier` move to `@likec4/core` (slice 8). Hard cut, callers updated in the same change | `pnpm exec tsc --build` |
+| `language-server/model-change/ModelChanges.ts` history | modified | History is recorded with an LSP connection too; undo/redo apply through `applyWorkspaceEdits` (ADR-004). Medium | Extend `undo.spec.ts` with a faked connection |
+| `language-server/model-change/addRelation.ts`, `addDynamicStep.ts`, `changeTitle.ts` | modified | kind/technology, `beforeStep`, relation target. Low | Handler specs |
+| `language-server/model-change/removeDynamicStep.ts` | new | Step lookup by step path, whole-statement removal. Medium | Handler spec |
+| `vscode/src/useRpc.ts`, `panel/activateMessenger.ts`, `vscode-preview/src/state.ts` | modified | Messenger requests for undo/redo, port gains `undoModelChange` / `redoModelChange`, modified documents saved. Medium (no automated test runs the extension) | Manual check in Code - OSS |
+| `diagram/editor-ui/*` | modified | Identifier field, connect popover (kind, technology, position), edge-label retitle, manual-layout notice. Medium | Editor UI specs, E2E |
 | `generators/likec4` | unaffected | Not used (rule 2) | — |
 
 SD-013 regimes: no persisted user state changes. The public TS/LSP surfaces change additively, so
@@ -461,6 +562,20 @@ always on when an editor port exists).
 6. **Slice 6 — deployment views**: add-deployment-node, add-instance; exclude/title reuse slices 3–4.
 7. **Slice 7 — dynamic views**: add-dynamic-step.
 
+Amendment of 2026-10-18 (owner answers Q2–Q8). All depend on slices 1–7, which are delivered.
+
+8. **Slice 8 — identifier prompt (Q2)**: move naming to core, identifier field in the drop popover
+   for elements, deployment nodes and instances.
+9. **Slice 9 — connect popover with kind and technology (Q4)**: `AddRelation.kind/technology`,
+   popover on connect in element views.
+10. **Slice 10 — relation retitle (Q6)**: `ChangeTitle` with a relation target, double-click on an
+    edge label. Depends on 9 only for the shared popover code, if any.
+11. **Slice 11 — dynamic views: step position and step removal (Q3, Q5)**: `beforeStep`,
+    `remove-dynamic-step`, position select in the connect popover, `Del` on steps.
+12. **Slice 12 — manual-layout notice (Q7)**: palette notice and first-drop toast.
+13. **Slice 13 — canvas undo in VSCode (Q8, ADR-004)**: server history with an LSP connection,
+    extension requests, preview port, snapshot sync on undo.
+
 ### Technical Dependencies
 
 - `pnpm generate` and `pnpm exec tsc --build` after core type changes.
@@ -510,8 +625,9 @@ on every rejection. The vite plugin keeps its `view:onChange` line. There are no
 1. A rejected gesture leaves every `.c4` file byte-identical to its state before the request.
 2. Per project, `applyChange` / `undoChange` / `redoChange` execute strictly one at a time
    (a per-project promise chain in `LikeC4ModelChanges`).
-3. An undo entry is applied only if the file's current content hash equals the entry's `afterHash`.
-   Otherwise the stack is cleared and `stale-undo` is returned.
+3. An undo entry is applied only if every file's current content equals the entry's text after the
+   edit (before it, for redo). Otherwise that entry is dropped and `stale-undo` is returned. This
+   holds with and without an LSP connection (ADR-004).
 4. Edits never touch text outside the computed insertion/replacement ranges.
 5. The canvas never renders an editing affordance when `enableReadOnly` is true or the editor port
    is a stub.
@@ -543,7 +659,14 @@ on every rejection. The vite plugin keeps its `view:onChange` line. There are no
 - `packages/language-server/src/like-c4.langium:1267` — `IdTerminal` regex (rule 5).
 - `packages/language-server/src/protocol.ts:286-303` — `ChangeView` request/response.
 - `packages/language-server/src/filesystem/LikeC4ManualLayouts.ts:214-255` — snapshot writes via FS
-  (Q8).
+  (Q8, unchanged by ADR-004).
+- `packages/language-server/src/model-change/_naming.ts` — identifier derivation to move to core
+  (rule 5).
+- `packages/core/src/types/scalar.ts:147-201` — `StepPath` / step ids (rule 8).
+- `packages/core/src/compute-view/dynamic-view/` — how step paths are assigned (`step-02:par.01`).
+- `packages/language-server/src/like-c4.langium:655-810` — `StepStatement`, blocks, `StepSeries`.
+- `packages/diagram/src/editor/actor/state.sync-queue.ts:300-380` — model history entries and
+  `refreshManualLayout` after undo/redo (snapshot sync, rule 14).
 - `packages/diagram/src/editor/LikeC4EditorCallbacks.tsx` — the port contract.
 - `packages/diagram/src/editor/useEditorActorLogic.ts:39-61` — `executeChange` swallows errors and
   returns `applied`.
@@ -572,13 +695,12 @@ on every rejection. The vite plugin keeps its `view:onChange` line. There are no
 
 ## Assumptions and Defaults
 
-- Q2 default: identifiers are derived from titles (rule 5).
-- Q3 default: dynamic steps are appended at the end of the top-level steps.
-- Q4 default: relations are created as a plain `->` with no kind/technology.
-- Q5 default: no `Del` in dynamic views.
-- Q6 default: relation title edit is out of scope.
-- Q7 default: no new drift reasons.
-- Q8 default: non-atomic snapshot write is accepted.
+- Q2–Q8 are resolved (see Resolved Questions). The defaults below were chosen in the amendment
+  without a separate owner decision:
+  - Step positions are offered only between top-level steps (rule 17).
+  - Steps of a series (`a -> b -> c`) are not removable from the canvas (rule 8).
+  - The relation technology is written as a body property, not positionally (rule 16).
+  - The manual-layout toast is shown once per view per session (rule 18).
 - The undo stack is capped at 100 entries per project.
 - A palette popover's default title is `New <kind>`.
 - Indentation: copied from the parent's first child line, else parent indent + the file's detected
@@ -593,3 +715,5 @@ on every rejection. The vite plugin keeps its `view:onChange` line. There are no
   replaces the epic's "version" check.
 - [ADR-003: Dev-server model undo is a server-side inverse-edit stack joined to canvas
   history](adrs/adr-003.md) — implements D13 alongside the existing layout undo.
+- [ADR-004: Canvas undo of model edits in VSCode through the server history](adrs/adr-004.md) —
+  resolves Q8; amends ADR-003.

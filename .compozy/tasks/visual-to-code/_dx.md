@@ -95,6 +95,39 @@ const retitle: ViewChange.ChangeTitle = { op: 'change-title', target: 'cloud.api
 //  → api = service 'API'   becomes   api = service 'Public API'
 ```
 
+Amendment of 2026-10-18:
+
+```ts
+const typed: ViewChange.AddRelation = {
+  op: 'add-relation', source: 'cloud.api', target: 'cloud.queue',
+  title: 'publishes', kind: 'async', technology: 'Kafka',
+}
+//  → in api { … }:   -[async]-> cloud.queue 'publishes' {
+//                      technology 'Kafka'
+//                    }
+
+const named: ViewChange.AddElement = { op: 'add-element', parent: null, kind: 'system', title: 'Payment Service', name: 'payments' }
+//  → payments = system 'Payment Service'      (the canvas always sends `name`, US-012)
+
+const relTitle: ViewChange.ChangeTitle = { op: 'change-title', target: { relation: 'r1a2b3' }, title: 'reads orders' }
+//  → api -> db 'reads'   becomes   api -> db 'reads orders'
+
+const placed: ViewChange.AddDynamicStep = { op: 'add-dynamic-step', source: 'web', target: 'api', beforeStep: 1 }
+//  → inserted on its own line before the 2nd top-level step
+
+const unstep: ViewChange.RemoveDynamicStep = { op: 'remove-dynamic-step', step: 'step-02:par.01' }
+//  → removes that step's statement (refused for steps of a chain)
+```
+
+Identifier suggestion, shared by the canvas and the server:
+
+```ts
+import { deriveIdentifier, isValidIdentifier } from '@likec4/core/utils'
+
+deriveIdentifier('Payment Service', 'system', new Set(['paymentService'])) // 'paymentService2'
+isValidIdentifier('9lives') // false
+```
+
 (The literals are shown untagged for readability. Real code uses `Fqn(...)` etc. from
 `@likec4/core/types`.)
 
@@ -112,8 +145,9 @@ When a created item would be hidden by the view's predicates, the same edit also
       await likec4rpc.updateView({ projectId, viewId, change }) // throws on failure
     },
     // optional: makes Ctrl+Z / Ctrl+Shift+Z on the canvas undo/redo model edits
-    undoModelChange: (viewId) => likec4rpc.undoChange({ projectId }),
-    redoModelChange: (viewId) => likec4rpc.redoChange({ projectId }),
+    // (wired in the dev server and, since ADR-004, in the VSCode preview)
+    undoModelChange: (viewId, historyId) => likec4rpc.undoChange({ projectId, historyId }),
+    redoModelChange: (viewId, historyId) => likec4rpc.redoChange({ projectId, historyId }),
   }}>
   <LikeC4Diagram view={view} />
 </LikeC4EditorProvider>
@@ -146,12 +180,11 @@ Failure:
 
 ### LSP requests `likec4/undo-change`, `likec4/redo-change`
 
-Request `{ "projectId": "default" }`. The response has the same shape as `change-view`. Over an LSP
-connection with a client (VSCode) the response is:
-
-```json
-{ "success": false, "code": "unsupported-in-view", "error": "Use the editor's undo in VSCode" }
-```
+Request `{ "projectId": "default", "historyId": "h3" }` (`historyId` optional: when given, the
+request is refused with `stale-undo` unless it is the latest entry). The response has the same
+shape as `change-view`, including `modifiedUris`. Since ADR-004 this works over an LSP connection
+too: the restored texts are applied as one `WorkspaceEdit`, and the VSCode extension saves the
+modified documents.
 
 ### vite RPC (`likec4:rpc`)
 
@@ -177,10 +210,10 @@ Failed to apply view change:
 | `not-found` | source/target/parent/element/relation/view missing at apply time, or undo/redo stack empty | `Element "cloud.ui" not found` / `Nothing to undo` | Refresh; the model changed |
 | `invalid-name` | explicit `name` does not match the identifier grammar | `Invalid identifier "billing api"` | Use letters, digits, `-`, `_` |
 | `name-collision` | explicit `name` already used by a sibling | `Element "cloud.billingApi" already exists` | Pick another name |
-| `unknown-kind` | kind not declared in `specification {}` | `Unknown element kind "servise"` | Declare it in the specification first |
-| `read-only-target` | parent/target defined in another project or outside the workspace | `"shared.auth" is defined in another project` | Edit it in its own project |
+| `unknown-kind` | element, deployment or relationship kind not declared in `specification {}` | `Unknown element kind "servise"` / `Unknown relationship kind "asinc"` | Declare it in the specification first |
+| `read-only-target` | parent/target defined in another project or outside the workspace, or a relation to retitle that is not defined in this project | `"shared.auth" is defined in another project` | Edit it in its own project |
 | `has-references` | delete-from-model while references exist | `Element "cloud.legacy" is referenced in 3 places` | Remove the references first |
-| `unsupported-in-view` | op not valid for the view type, or undo over an LSP client | `add-dynamic-step is not supported in element views` | — |
+| `unsupported-in-view` | op not valid for the view type, or a step of a chain to remove | `add-dynamic-step is not supported in element views` / `Steps of a chain cannot be removed from the canvas` | — |
 | `invalid-result` | the edit introduced errors; it was reverted | `Change reverted: <first diagnostic message>` | Fix the surrounding DSL, then retry |
 | `apply-failed` | the editor/filesystem refused the write | `Failed to apply changes: <reason>` | Check that the file is writable |
 | `stale-undo` | file changed since the edit being undone | `File changed since this edit; undo unavailable` | Undo in the text editor |

@@ -33,6 +33,9 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 | S7 | Delete-from-model dialog | new | References list or confirm | US-005 |
 | S8 | `Del` behaviour | modify | Writes `exclude` instead of a snapshot-only removal | US-004 |
 | S9 | Error toasts | new usage | One toast per rejected gesture | all |
+| S10 | Connect popover | new (2026-10-18) | Title, kind, technology (element views); title, position (dynamic views) | US-013, US-015 |
+| S11 | Edge label title editor | new (2026-10-18) | Double-click an edge label to edit the relation title | US-014 |
+| S12 | Manual-layout notice | new (2026-10-18) | Notice in the palette + first-drop info toast | US-017 |
 
 ### S1. Node connection handles
 
@@ -66,6 +69,11 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 - **Change**: anchored at the drop point. For elements and deployment nodes: a title input
   prefilled `New <kind>` with Confirm. For instances: a searchable list of model elements
   (Mantine `Combobox`).
+- **Change (2026-10-18, US-012)**: an `Identifier` field under the title (instances: under the
+  element search), prefilled with the suggestion from `deriveIdentifier`. It follows the title
+  until the user edits it; clearing it returns to following. Focus selects all its text. Enter in
+  any field confirms. Inline validation text: `Invalid identifier` / `Already used by a sibling`
+  (Confirm disabled while shown).
 - **States**: open, confirm disabled (empty title, US-002.EC-3), cancelled (Esc, US-002.AC-7),
   invalid drop for instance on empty canvas (indicator `Drop on a deployment node`,
   US-008.EC-1).
@@ -105,12 +113,38 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
 - **Today**: `onDelete` → `delete.nodes-edges` → `deleteNodesAndEdges` removes the nodes from the
   manual snapshot only (`DiagramXYFlow.tsx:284-292`, `editor/actor/actions.ts:159-210`).
 - **Change**: `onDelete` → `change.view` with `exclude-from-view`. In manual-layout views the
-  snapshot is updated after sync, like D12. No `Del` in dynamic views (Q5).
+  snapshot is updated after sync, like D12.
+- **Change (2026-10-18, US-016)**: in dynamic views `Del` on a selected step edge emits
+  `remove-dynamic-step`; on nodes it does nothing.
 
 ### S9. Error toasts
 
 - **Change**: the existing Mantine notifications are used, with the message from `_dx.md`
   §Errors, red/error variant, auto-close after 6 s.
+
+### S10. Connect popover
+
+- **Change**: replaces the plain title prompt shown after a connection. Anchored at the drop point.
+- **Element views**: `Title` (optional), `Kind` (Mantine `Select`, `none` + the declared
+  relationship kinds; absent when there are none), `Technology` (optional). Enter confirms with
+  whatever is filled; Esc cancels and removes the ghost edge.
+- **Dynamic views**: `Title` (optional), `Position` (`Select`: `At the end` (default), then
+  `Before step N: <source> -> <target>` per top-level step; absent when there are no steps).
+- **States**: open, cancelled, confirmed (ghost edge stays until sync).
+
+### S11. Edge label title editor
+
+- **Change**: double-click on an edge label (or on an unlabeled edge, at its midpoint) opens the
+  same inline input as S5, prefilled with the relation title. Only for edges backed by exactly one
+  relation defined in this project.
+- **States**: editing, committed, cancelled. Empty + Enter removes the title.
+
+### S12. Manual-layout notice
+
+- **Change**: in a view with a manual-layout snapshot, the palette shows a muted info line with the
+  text from `_spec.md` rule 18. The first new element dropped in that view during the session also
+  shows a blue info notification with the same text (auto-close 6 s).
+- **States**: hidden (auto layout, read-only), shown.
 
 ## Component plan
 

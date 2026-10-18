@@ -29,6 +29,13 @@ matrix).
 | US-009 | Dynamic | Architect, VSCode author | Connect two elements to append a dynamic step |
 | US-010 | Read-only | Viewer | No editing affordances on static sites |
 | US-011 | Programmatic | Integrator | Apply the same ops through LSP/RPC with error codes |
+| US-012 | Elements | Architect, VSCode author | Confirm or type the identifier of a new element |
+| US-013 | Relations | Architect, VSCode author | Set kind and technology when connecting |
+| US-014 | Retitle | Architect, VSCode author | Edit a relation's title in place |
+| US-015 | Dynamic | Architect, VSCode author | Choose where a new step goes |
+| US-016 | Dynamic | Architect, VSCode author | Remove a step with `Del` |
+| US-017 | Manual layout | Architect, VSCode author | Be told that new elements must be positioned by hand |
+| US-018 | Undo | VSCode author | Undo model edits from the canvas in VSCode |
 
 ## Relations
 
@@ -167,7 +174,7 @@ Edge cases:
 
 - EC-1: A deleted container cascades to its selected children → each removed node gets its own
   `exclude`.
-- EC-2: In a dynamic view → `Del` does nothing on the canvas (Q5 default).
+- EC-2: In a dynamic view → `Del` on a node does nothing; on a step edge it removes the step (US-016).
 - EC-3: In a deployment view → `exclude <deploymentFqn>` is written (the grammar supports it).
 - EC-4: An item already excluded by an earlier rule but still visible through a later include →
   the new `exclude` is appended last and wins.
@@ -221,8 +228,7 @@ Edge cases:
 - EC-2: The dev server was restarted → no model entries remain, and Ctrl+Z affects only layout
   history.
 - EC-3: More than 100 model edits → the oldest are no longer undoable.
-- EC-4: In the VSCode preview → canvas Ctrl+Z affects only layout. Model edits are undone through
-  the `.c4` document's own Undo.
+- EC-4: In the VSCode preview → see US-018 (canvas undo of model edits in VSCode, ADR-004).
 
 ## Deployment
 
@@ -321,3 +327,147 @@ Edge cases:
   `name-collision` (no auto-suffix when the name is explicit).
 - EC-3: An `add-dynamic-step` against an element view → code `unsupported-in-view`.
 - EC-4: An `undoChange` with an empty stack → `{ success: false, code: 'not-found' }`.
+
+## Amendment of 2026-10-18 (owner answers to Q2–Q8)
+
+### US-012: Confirm or type the identifier of a new element
+
+**As an** architect, **I want** the drop popover to suggest an identifier that I can accept or
+replace, **so that** the DSL gets the names I want without retyping.
+
+Acceptance criteria:
+
+- AC-1: Given I drop kind `system` on the canvas, then the popover shows a title field
+  (`New system`, selected) and an identifier field prefilled with `newSystem`.
+- AC-2: When I type the title `Payment Service`, then the identifier field shows `paymentService`.
+- AC-3: When I press Enter, then `paymentService = system 'Payment Service'` is written.
+- AC-4: When I focus the identifier field (Tab or click), then its whole text is selected; typing
+  `payments` replaces it, and Enter writes `payments = system 'Payment Service'`.
+- AC-5: After I edit the identifier, changing the title no longer changes the identifier.
+- AC-6: The same applies to deployment nodes, and to instances (suggestion = element name, e.g.
+  `api`, or `api2` when taken).
+
+Edge cases:
+
+- EC-1: A sibling `paymentService` exists → the suggestion is `paymentService2`.
+- EC-2: I type an identifier that does not match the grammar (`9lives`) → the field shows
+  `Invalid identifier` and Enter does nothing.
+- EC-3: I type an identifier a sibling already uses → the field shows `Already used by a sibling`
+  and Enter does nothing. If it became taken meanwhile on the server, the change is rejected with
+  `name-collision` and a toast.
+- EC-4: I clear the identifier field → the suggestion comes back and follows the title again.
+
+### US-013: Set kind and technology when connecting
+
+**As an** architect, **I want** to choose the relationship kind and technology when I connect two
+elements, **so that** the relation is complete without editing the DSL.
+
+Acceptance criteria:
+
+- AC-1: Given an element view and a specification with `relationship async`, when I connect `api` →
+  `queue`, then a popover opens at the drop point with title, kind (`none`, `async`) and technology.
+- AC-2: When I press Enter without filling anything, then `-> queue` is written (as in US-001).
+- AC-3: When I fill title `publishes`, kind `async` and technology `Kafka`, then
+  `-[async]-> queue 'publishes' {` / `technology 'Kafka'` / `}` is written.
+- AC-4: Esc closes the popover and nothing is written.
+
+Edge cases:
+
+- EC-1: No relationship kinds in the specification → the kind field is absent.
+- EC-2: The kind was removed from the specification meanwhile → `unknown-kind`, toast, no write.
+
+### US-014: Edit a relation's title in place
+
+**As an** architect, **I want** to double-click a relation label to edit its title, **so that** I
+can fix wording on the canvas.
+
+Acceptance criteria:
+
+- AC-1: Given edge `api -> db 'reads'` backed by one relation, when I double-click its label, edit
+  it to `reads orders` and press Enter, then the literal becomes `'reads orders'`.
+- AC-2: Given a relation without a title, when I double-click the edge, then an empty title editor
+  opens at the edge's midpoint, and Enter writes the title right after the target reference.
+- AC-3: Given the title is a `title` property in the relation body, then that property is updated.
+- AC-4: Clearing the title and pressing Enter removes the title.
+
+Edge cases:
+
+- EC-1: The edge aggregates more than one relation, or the relation is defined in another project
+  → double-click does nothing.
+- EC-2: Same title → no write.
+
+### US-015: Choose where a new step goes
+
+**As an** architect, **I want** to choose the position of a new step in a dynamic view, **so
+that** the flow reads in the right order.
+
+Acceptance criteria:
+
+- AC-1: Given dynamic view `checkout` with top-level steps 1–3, when I connect `web` → `api`, then
+  a popover opens with title and position, position defaulting to `At the end`.
+- AC-2: Enter with the default appends the step after step 3 (as in US-009).
+- AC-3: Choosing `Before step 2` writes the step on its own line just before step 2's statement,
+  with its indentation.
+
+Edge cases:
+
+- EC-1: The view has no steps → the position field is absent.
+- EC-2: A step was added or removed in the file meanwhile, so the index points elsewhere → the
+  server inserts before the statement at that index if it exists, otherwise at the end. The ghost
+  disappears on sync as usual.
+
+### US-016: Remove a step with `Del`
+
+**As an** architect, **I want** to select a step in a dynamic view and press `Del`, **so that** the
+step is removed from the view.
+
+Acceptance criteria:
+
+- AC-1: Given step 2 is `web -> api 'calls'` on its own line, when I select its edge and press
+  `Del`, then that line is removed and the view renumbers its steps.
+- AC-2: Given a step inside a `par` block, then only that step's line is removed; the block stays.
+
+Edge cases:
+
+- EC-1: The step is part of a chain `web -> api -> db` → toast `Steps of a chain cannot be removed
+  from the canvas` (code `unsupported-in-view`), no write.
+- EC-2: `Del` with a node selected in a dynamic view → nothing happens.
+- EC-3: The step is no longer in the file → `not-found`, toast.
+
+### US-017: Be told that new elements must be positioned by hand
+
+**As an** architect, **I want** to know that a view has a manual layout before I add elements to
+it, **so that** I am not surprised that new elements are not auto-arranged.
+
+Acceptance criteria:
+
+- AC-1: Given a view with a manual-layout snapshot and editing enabled, then the palette shows
+  `This view has a manual layout. New elements are placed where you drop them; move them to where
+  they belong.`
+- AC-2: When I drop the first new element in that view during the session, then an info toast
+  with the same text is shown. Later drops in the same view show no toast.
+- AC-3: In a view with auto layout, no notice and no toast are shown.
+
+### US-018: Undo model edits from the canvas in VSCode
+
+**As a** VSCode author, **I want** Ctrl+Z / Ctrl+Shift+Z on the preview canvas to undo and redo
+my model edits, **so that** I do not have to find the edit in the `.c4` file, and the manual layout
+stays in sync.
+
+Acceptance criteria:
+
+- AC-1: Given I connected `api` → `db` in the VSCode preview, when I press Ctrl+Z on the canvas,
+  then the inserted lines are removed from the document(s), the documents are saved, and the edge
+  disappears.
+- AC-2: Ctrl+Shift+Z re-inserts them.
+- AC-3: Given a manual-layout view, when I drop a new element and then press Ctrl+Z on the canvas,
+  then the element is removed from the `.c4` file and from the snapshot, and no drift is reported.
+- AC-4: Model and layout edits undo in the reverse order I made them, as one history (as US-006).
+
+Edge cases:
+
+- EC-1: I edited the document by hand after the canvas edit → `stale-undo` toast, no write (as
+  US-006.EC-1).
+- EC-2: The VSCode window was reloaded → no model entries remain.
+- EC-3: I undo with the `.c4` editor's own Undo instead → the text is reverted, the snapshot is not,
+  and drift is reported as today (non-goal).
