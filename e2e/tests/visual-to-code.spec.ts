@@ -362,6 +362,8 @@ test('US-009: connecting two elements in a dynamic view appends a step', async (
   await page.mouse.down()
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
   await page.mouse.up()
+  // title and position are asked first, Enter appends without title
+  await page.getByLabel('Step title').press('Enter')
 
   await expect.poll(() => readServed('dynamic.c4'), { timeout: 10_000 }).toContain(
     `  dynamic view flow {\n    customer.app -> customer.web\n    include customer.app, customer.web\n  }`,
@@ -369,6 +371,68 @@ test('US-009: connecting two elements in a dynamic view appends a step', async (
   await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
   // No model relation is created
   expect(await readServed()).not.toContain('-> customer.web')
+})
+
+test('US-015 + E2E-008: a step inserted at a chosen position, a step removed with Del', async ({ page }) => {
+  await page.goto('/view/flow/?dynamic=diagram')
+  const app = page.locator('.react-flow__node[data-id="customer.app"]')
+  const web = page.locator('.react-flow__node[data-id="customer.web"]')
+  await expect(app).toBeVisible()
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0, { timeout: 10_000 })
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  // waits until the node stops moving (the view is laid out again after each step)
+  const settled = async (node: typeof app) => {
+    await expect.poll(async () => {
+      const a = await node.boundingBox()
+      await page.waitForTimeout(150)
+      const b = await node.boundingBox()
+      return JSON.stringify(a) === JSON.stringify(b)
+    }, { timeout: 10_000 }).toBe(true)
+  }
+  const connect = async (from: typeof app, to: typeof app) => {
+    await settled(from)
+    await settled(to)
+    await from.hover()
+    const handle = (await from.locator('.likec4-connect-handle').boundingBox())!
+    const box = (await to.boundingBox())!
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 20, box.y + 20, { steps: 10 })
+    await page.mouse.up()
+  }
+
+  await connect(app, web)
+  await page.getByLabel('Step title').press('Enter')
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
+
+  // US-015: before the first step
+  await connect(web, app)
+  await page.getByLabel('Step title').fill('back')
+  await page.getByLabel('Step position').selectOption({ label: 'Before step 1: App → Web' })
+  await page.getByLabel('Step title').press('Enter')
+  await expect.poll(() => readServed('dynamic.c4'), { timeout: 10_000 }).toContain(
+    `    customer.web -> customer.app 'back'\n    customer.app -> customer.web\n`,
+  )
+  await expect(page.locator('.react-flow__edge')).toHaveCount(2, { timeout: 10_000 })
+
+  // E2E-008: Del on the step `App -> Web` (now step 2) removes it
+  await settled(app)
+  await settled(web)
+  // click a point on the curve (the center of its bounding box may be off the stroke)
+  const onCurve = await page.getByRole('group', { name: 'Relationship from App to Web.', exact: true })
+    .locator('path').first().evaluate((path: SVGPathElement) => {
+      const point = path.getPointAtLength(path.getTotalLength() / 2)
+      const { x, y } = point.matrixTransform(path.getScreenCTM()!)
+      return { x, y }
+    })
+  await page.mouse.click(onCurve.x, onCurve.y)
+  await expect(page.locator('.react-flow__edge.selected')).toHaveCount(1)
+  await page.keyboard.press('Delete')
+  await expect.poll(() => readServed('dynamic.c4'), { timeout: 10_000 }).not.toContain(
+    `customer.app -> customer.web`,
+  )
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
 })
 
 test('E2E-009 (review 005): undo of an element dropped in a manual layout view leaves no drift', async ({ page }) => {
