@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 13: Manual-layout notice when adding elements"
 type: feature
 complexity: low
@@ -30,7 +30,7 @@ dropped and must be positioned by hand. Owner decision Q7, 2026-10-18.
 
 ## Subtasks
 
-- [ ] 13.1 Diagram: notice in `ElementPalette.tsx`; first-drop info toast from the drop flow.
+- [x] 13.1 Diagram: notice in `ElementPalette.tsx`; first-drop info toast from the drop flow.
 
 ## Implementation Details
 
@@ -41,6 +41,20 @@ dropped and must be positioned by hand. Owner decision Q7, 2026-10-18.
 
 ## Tests
 
-- [ ] UT-250 — notice only in manual-layout views
-- [ ] UT-251 — toast on the first drop only
-- [ ] UT-252 — no notice when read-only
+- [x] UT-250 — notice only in manual-layout views
+- [x] UT-251 — toast on the first drop only
+- [x] UT-252 — no notice when read-only
+
+## Completion Notes (2026-10-18)
+
+- Diagram: `ElementPalette` shows an optional `notice`; `DiagramXYFlow` passes `MANUAL_LAYOUT_NOTICE`
+  when the view has `_layout === 'manual'`. `editor-ui/ManualLayoutNotice.tsx`:
+  `useManualLayoutToast` shows a blue Mantine notification (auto-close 6 s) on the first element
+  dropped in a manual-layout view; `takeManualLayoutToast` remembers the views in a module-level set
+  (once per view per page session, nothing persisted).
+- UT-252 (no notice when read-only) needs no new case: without editing the palette is not rendered
+  at all (UT-064, `editorAffordances`).
+- E2E-002 also checks the palette notice and the toast.
+- Verification: diagram 224 passed; `pnpm typecheck` 26/26; dev-server E2E 17 passed; static-build
+  E2E 2 passed.
+
