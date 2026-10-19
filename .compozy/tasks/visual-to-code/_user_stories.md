@@ -16,26 +16,26 @@ matrix).
 
 ## Story Index
 
-| ID | Feature Area | Persona | Story |
-|---|---|---|---|
-| US-001 | Relations | Architect, VSCode author | Connect two elements to create a relation |
-| US-002 | Elements | Architect, VSCode author | Drop a kind from the palette to create an element |
-| US-003 | Retitle | Architect, VSCode author | Edit a node's title in place |
-| US-004 | Removal | Architect, VSCode author | Hide items from one view with `Del` |
-| US-005 | Removal | Architect, VSCode author | Delete an unreferenced definition from the model |
-| US-006 | Undo | Architect | Undo/redo model edits from the canvas in the dev server |
-| US-007 | Deployment | Architect, VSCode author | Create a deployment node from the palette |
-| US-008 | Deployment | Architect, VSCode author | Deploy an element as an `instanceOf` |
-| US-009 | Dynamic | Architect, VSCode author | Connect two elements to append a dynamic step |
-| US-010 | Read-only | Viewer | No editing affordances on static sites |
-| US-011 | Programmatic | Integrator | Apply the same ops through LSP/RPC with error codes |
-| US-012 | Elements | Architect, VSCode author | Confirm or type the identifier of a new element |
-| US-013 | Relations | Architect, VSCode author | Set kind and technology when connecting |
-| US-014 | Retitle | Architect, VSCode author | Edit a relation's title in place |
-| US-015 | Dynamic | Architect, VSCode author | Choose where a new step goes |
-| US-016 | Dynamic | Architect, VSCode author | Remove a step with `Del` |
-| US-017 | Manual layout | Architect, VSCode author | Be told that new elements must be positioned by hand |
-| US-018 | Undo | VSCode author | Undo model edits from the canvas in VSCode |
+| ID     | Feature Area  | Persona                  | Story                                                   |
+| ------ | ------------- | ------------------------ | ------------------------------------------------------- |
+| US-001 | Relations     | Architect, VSCode author | Connect two elements to create a relation               |
+| US-002 | Elements      | Architect, VSCode author | Drop a kind from the palette to create an element       |
+| US-003 | Retitle       | Architect, VSCode author | Edit a node's title in place                            |
+| US-004 | Removal       | Architect, VSCode author | Hide items from one view with `Del`                     |
+| US-005 | Removal       | Architect, VSCode author | Delete an unreferenced definition from the model        |
+| US-006 | Undo          | Architect                | Undo/redo model edits from the canvas in the dev server |
+| US-007 | Deployment    | Architect, VSCode author | Create a deployment node from the palette               |
+| US-008 | Deployment    | Architect, VSCode author | Deploy an element as an `instanceOf`                    |
+| US-009 | Dynamic       | Architect, VSCode author | Connect two elements to append a dynamic step           |
+| US-010 | Read-only     | Viewer                   | No editing affordances on static sites                  |
+| US-011 | Programmatic  | Integrator               | Apply the same ops through LSP/RPC with error codes     |
+| US-012 | Elements      | Architect, VSCode author | Confirm or type the identifier of a new element         |
+| US-013 | Relations     | Architect, VSCode author | Set kind and technology when connecting                 |
+| US-014 | Retitle       | Architect, VSCode author | Edit a relation's title in place                        |
+| US-015 | Dynamic       | Architect, VSCode author | Choose where a new step goes                            |
+| US-016 | Dynamic       | Architect, VSCode author | Remove a step with `Del`                                |
+| US-017 | Manual layout | Architect, VSCode author | Be told that new elements must be positioned by hand    |
+| US-018 | Undo          | VSCode author            | Undo model edits from the canvas in VSCode              |
 
 ## Relations
 
@@ -155,7 +155,7 @@ Edge cases:
 
 ### US-004: Hide items from one view with `Del`
 
-**As an** architect, **I want** `Del` to remove the selected nodes/edges from *this* view only,
+**As an** architect, **I want** `Del` to remove the selected nodes/edges from _this_ view only,
 **so that** I can tidy a view without touching the model.
 
 Acceptance criteria:
@@ -412,9 +412,8 @@ Acceptance criteria:
 Edge cases:
 
 - EC-1: The view has no steps → the position field is absent.
-- EC-2: A step was added or removed in the file meanwhile, so the index points elsewhere → the
-  server inserts before the statement at that index if it exists, otherwise at the end. The ghost
-  disappears on sync as usual.
+- EC-2: A step was added or removed in the file meanwhile → the server inserts before the step that
+  has that id now, or at the end when there is none. The ghost disappears on sync as usual.
 
 ### US-016: Remove a step with `Del`
 

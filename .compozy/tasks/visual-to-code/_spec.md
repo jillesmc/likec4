@@ -1,5 +1,5 @@
 ---
-title: "Visual-to-code editing (canvas → DSL), phase 1"
+title: 'Visual-to-code editing (canvas → DSL), phase 1'
 slug: visual-to-code
 status: draft
 created: 2026-10-12
@@ -13,8 +13,8 @@ follow_up: visual-to-code-rename-move (phase 2, separate spec)
 
 ## Overview
 
-- **Motivating Problem**: today an architect can only change *how* a view looks from the canvas
-  (layout, style, autoLayout, view title). Every change to *what the model contains*, such as a new
+- **Motivating Problem**: today an architect can only change _how_ a view looks from the canvas
+  (layout, style, autoLayout, view title). Every change to _what the model contains_, such as a new
   relation, a new element, a retitle or a removal, means leaving the diagram, finding the right
   `.c4` file and block, typing DSL, and reloading. The simplest end-to-end behaviour that removes
   this pain is: **drag a connection from element A to element B on the canvas, and a correct,
@@ -93,7 +93,7 @@ Features 6–8 are cross-cutting and apply to features 1–5.
 2. **Minimal edits**: every change is a set of `TextEdit`s. Whole-file regeneration
    (`writeDSL` / `toDSL`) is forbidden for this feature.
 3. **Placement of new elements and deployment nodes (D4)**: nested in the parent's block, in the
-   file holding the parent's *definition* (not an `extend`). Without a parent, they go in the first
+   file holding the parent's _definition_ (not an `extend`). Without a parent, they go in the first
    `model {}` (or `deployment {}`) block of the file that defines the current view. If that block
    does not exist, it is appended at the end of that file. A parent without a body gets `{ }` added.
 4. **Placement of new relations (ADR-001)**: inside the source element's definition block, as
@@ -127,7 +127,7 @@ Features 6–8 are cross-cutting and apply to features 1–5.
    - A block left empty by the removal stays (an empty block is valid DSL).
 9. **Delete from model (D6, confirmed by the owner on 2026-10-13)**:
    - Elements and deployment nodes are blocked while any reference exists: relations (either end),
-     nested children, `instanceOf`, `extend`, dynamic steps, and view rules in *any* view
+     nested children, `instanceOf`, `extend`, dynamic steps, and view rules in _any_ view
      (including the current one). The dialog lists the references as the reason.
    - Relations are never blocked. The dialog lists the views showing it, for information only.
    - An edge that aggregates more than one relation offers no "Delete from model".
@@ -164,8 +164,10 @@ Features 6–8 are cross-cutting and apply to features 1–5.
     which the canvas does not ask for). An undeclared kind is rejected (`unknown-kind`).
 17. **Step position (Q3, owner 2026-10-18)**: connecting in a dynamic view opens a popover with
     title (optional) and position. The default is "At the end" (after the last top-level step);
-    the other options are "Before step N" for each top-level step. Positions inside blocks are not
-    offered.
+    the other options are "Before step N" for each top-level step (a block counts as one step).
+    Positions inside blocks are not offered. The position is sent as the id of the step (`step-03`);
+    the server inserts before the top-level statement that contains it (a chain `a -> b -> c` is one
+    statement with several steps, so an index would not match the step numbers).
 18. **Manual-layout notice (Q7, owner 2026-10-18)**: when editing is enabled in a view that has a
     manual-layout snapshot, the palette shows a notice: `This view has a manual layout. New
     elements are placed where you drop them; move them to where they belong.` The first new element
@@ -174,8 +176,8 @@ Features 6–8 are cross-cutting and apply to features 1–5.
 
 ## User Experience
 
-- **Personas**: *Architect* (sketches in `likec4 start` in a browser), *VSCode author* (preview
-  panel next to the `.c4` editor), *Viewer* (static site, read-only), *Integrator* (script/agent
+- **Personas**: _Architect_ (sketches in `likec4 start` in a browser), _VSCode author_ (preview
+  panel next to the `.c4` editor), _Viewer_ (static site, read-only), _Integrator_ (script/agent
   calling the LSP or RPC).
 - **Primary flow (slice 1)**: open a view → hover node A → drag from its handle → drop on B → a
   dashed edge appears → within ~1 s it becomes a normal edge, and the `.c4` file contains
@@ -245,7 +247,7 @@ Extend the existing `ViewChange` union with eight phase-1 ops. Each gets its own
 handler in `packages/language-server/src/model-change/`, following `changeElementStyle.ts`.
 `LikeC4ModelChanges.applyChange` gains three things: precondition validation, visibility
 prediction (computing the view over an in-memory patched copy of the parsed model, so the
-auto-include is part of the *same* edit), and a multi-file `applyWorkspaceEdits` with a
+auto-include is part of the _same_ edit), and a multi-file `applyWorkspaceEdits` with a
 post-apply error guard and revert. The hosts forward ops unchanged. Two host contracts change:
 VSCode preview must **throw** on `success: false` (today it resolves silently), and the dev server
 gains `undoChange`/`redoChange` RPCs.
@@ -408,8 +410,8 @@ export namespace ViewChange {
 
   export interface AddDynamicStep {
     // ...as above
-    /** 0-based index among the top-level steps to insert before; at the end when omitted (rule 17) */
-    beforeStep?: number
+    /** Step to insert before (its top-level statement); at the end when omitted or not found (rule 17) */
+    beforeStep?: scalar.StepPath
   }
 
   export interface ChangeTitle {
@@ -458,7 +460,7 @@ Handler shape (`model-change/*.ts`):
 ```ts
 // packages/language-server/src/model-change/_anchors.ts
 export interface ModelChangePlan {
-  edits: Map<string /* uri */, TextEdit[]>
+  edits: Map<string, /* uri */ TextEdit[]>
   modifiedRange: Location
 }
 ```
@@ -490,27 +492,27 @@ None outside the repository.
 
 ## Impact Analysis
 
-| Component | Impact Type | Description and Risk | Required Action |
-|---|---|---|---|
-| `core/types/view-changes.ts` `ViewChange` | modified (additive) | 8 new union members. Every `switch` with `nonexhaustive` breaks at compile time (desired). Medium | Run gitnexus impact. `pnpm exec tsc --build` before downstream typecheck |
-| `language-server/model-change/ModelChanges.ts` | modified | `applyChange` dispatch, preconditions, prediction, guard. `applyTextEdits` replaced by `applyWorkspaceEdits(Map)`. High (central path) | Keep the existing ops' behaviour byte-identical, covered by existing specs |
-| `language-server/protocol.ts` | modified (additive) | `code?` on failure, 2 new requests. Low | — |
-| `vite-plugin/rpc/*` | modified (additive) | `undoChange` / `redoChange`. Low | Add to `protocol.ts`, `rpc.ts` |
-| `diagram/editor/actor/*` | modified | Ghosts, model-history entries, failure → toast. Medium (sync queue is subtle) | Extend `state.sync-queue.spec.ts` |
-| `diagram/editor/actor/actions.ts` `deleteNodesAndEdges` | **delete target** | Snapshot-only node removal on `Del` is replaced by `exclude-from-view`. Internal behaviour, hard cut in the same change, no fallback | Remove the action and its `delete.nodes-edges` handling. The event now emits `exclude-from-view` |
-| `diagram/likec4diagram/DiagramXYFlow.tsx` | modified | `onConnect`, `onDrop`, `nodesConnectable`, title dblclick, context menu; `onDelete` now emits exclude. Medium | Gate on `!enableReadOnly && !isStub` |
-| `diagram/editor/LikeC4EditorCallbacks.tsx` | modified (additive, public API) | Optional undo/redo; documented reject-on-failure. Low | JSDoc |
-| `vscode-preview/src/state.ts` `handleChange` | modified | Throw when `success: false`. Low | — |
-| `likec4-spa/pages/ViewEditor.tsx` | modified | Wire `undoModelChange` / `redoModelChange`. Low | — |
-| `apps/playground` | unaffected (checked) | Forwards ops to its LSP and ignores snapshot ops | None (non-goal) |
-| `core/manual-layout/*` drift | unaffected (Q7 resolved) | No new drift reasons. Gestures and canvas undo keep snapshots in sync | — |
-| `language-server/model-change/_naming.ts` | **moved** | `deriveIdentifier` / `isValidIdentifier` move to `@likec4/core` (slice 8). Hard cut, callers updated in the same change | `pnpm exec tsc --build` |
-| `language-server/model-change/ModelChanges.ts` history | modified | History is recorded with an LSP connection too; undo/redo apply through `applyWorkspaceEdits` (ADR-004). Medium | Extend `undo.spec.ts` with a faked connection |
-| `language-server/model-change/addRelation.ts`, `addDynamicStep.ts`, `changeTitle.ts` | modified | kind/technology, `beforeStep`, relation target. Low | Handler specs |
-| `language-server/model-change/removeDynamicStep.ts` | new | Step lookup by step path, whole-statement removal. Medium | Handler spec |
-| `vscode/src/useRpc.ts`, `panel/activateMessenger.ts`, `vscode-preview/src/state.ts` | modified | Messenger requests for undo/redo, port gains `undoModelChange` / `redoModelChange`, modified documents saved. Medium (no automated test runs the extension) | Manual check in Code - OSS |
-| `diagram/editor-ui/*` | modified | Identifier field, connect popover (kind, technology, position), edge-label retitle, manual-layout notice. Medium | Editor UI specs, E2E |
-| `generators/likec4` | unaffected | Not used (rule 2) | — |
+| Component                                                                            | Impact Type                     | Description and Risk                                                                                                                                        | Required Action                                                                                  |
+| ------------------------------------------------------------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `core/types/view-changes.ts` `ViewChange`                                            | modified (additive)             | 8 new union members. Every `switch` with `nonexhaustive` breaks at compile time (desired). Medium                                                           | Run gitnexus impact. `pnpm exec tsc --build` before downstream typecheck                         |
+| `language-server/model-change/ModelChanges.ts`                                       | modified                        | `applyChange` dispatch, preconditions, prediction, guard. `applyTextEdits` replaced by `applyWorkspaceEdits(Map)`. High (central path)                      | Keep the existing ops' behaviour byte-identical, covered by existing specs                       |
+| `language-server/protocol.ts`                                                        | modified (additive)             | `code?` on failure, 2 new requests. Low                                                                                                                     | —                                                                                                |
+| `vite-plugin/rpc/*`                                                                  | modified (additive)             | `undoChange` / `redoChange`. Low                                                                                                                            | Add to `protocol.ts`, `rpc.ts`                                                                   |
+| `diagram/editor/actor/*`                                                             | modified                        | Ghosts, model-history entries, failure → toast. Medium (sync queue is subtle)                                                                               | Extend `state.sync-queue.spec.ts`                                                                |
+| `diagram/editor/actor/actions.ts` `deleteNodesAndEdges`                              | **delete target**               | Snapshot-only node removal on `Del` is replaced by `exclude-from-view`. Internal behaviour, hard cut in the same change, no fallback                        | Remove the action and its `delete.nodes-edges` handling. The event now emits `exclude-from-view` |
+| `diagram/likec4diagram/DiagramXYFlow.tsx`                                            | modified                        | `onConnect`, `onDrop`, `nodesConnectable`, title dblclick, context menu; `onDelete` now emits exclude. Medium                                               | Gate on `!enableReadOnly && !isStub`                                                             |
+| `diagram/editor/LikeC4EditorCallbacks.tsx`                                           | modified (additive, public API) | Optional undo/redo; documented reject-on-failure. Low                                                                                                       | JSDoc                                                                                            |
+| `vscode-preview/src/state.ts` `handleChange`                                         | modified                        | Throw when `success: false`. Low                                                                                                                            | —                                                                                                |
+| `likec4-spa/pages/ViewEditor.tsx`                                                    | modified                        | Wire `undoModelChange` / `redoModelChange`. Low                                                                                                             | —                                                                                                |
+| `apps/playground`                                                                    | unaffected (checked)            | Forwards ops to its LSP and ignores snapshot ops                                                                                                            | None (non-goal)                                                                                  |
+| `core/manual-layout/*` drift                                                         | unaffected (Q7 resolved)        | No new drift reasons. Gestures and canvas undo keep snapshots in sync                                                                                       | —                                                                                                |
+| `language-server/model-change/_naming.ts`                                            | **moved**                       | `deriveIdentifier` / `isValidIdentifier` move to `@likec4/core` (slice 8). Hard cut, callers updated in the same change                                     | `pnpm exec tsc --build`                                                                          |
+| `language-server/model-change/ModelChanges.ts` history                               | modified                        | History is recorded with an LSP connection too; undo/redo apply through `applyWorkspaceEdits` (ADR-004). Medium                                             | Extend `undo.spec.ts` with a faked connection                                                    |
+| `language-server/model-change/addRelation.ts`, `addDynamicStep.ts`, `changeTitle.ts` | modified                        | kind/technology, `beforeStep`, relation target. Low                                                                                                         | Handler specs                                                                                    |
+| `language-server/model-change/removeDynamicStep.ts`                                  | new                             | Step lookup by step path, whole-statement removal. Medium                                                                                                   | Handler spec                                                                                     |
+| `vscode/src/useRpc.ts`, `panel/activateMessenger.ts`, `vscode-preview/src/state.ts`  | modified                        | Messenger requests for undo/redo, port gains `undoModelChange` / `redoModelChange`, modified documents saved. Medium (no automated test runs the extension) | Manual check in Code - OSS                                                                       |
+| `diagram/editor-ui/*`                                                                | modified                        | Identifier field, connect popover (kind, technology, position), edge-label retitle, manual-layout notice. Medium                                            | Editor UI specs, E2E                                                                             |
+| `generators/likec4`                                                                  | unaffected                      | Not used (rule 2)                                                                                                                                           | —                                                                                                |
 
 SD-013 regimes: no persisted user state changes. The public TS/LSP surfaces change additively, so
 no shim is needed. The internal delete target (`deleteNodesAndEdges`) is a hard cut with no

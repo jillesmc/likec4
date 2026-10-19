@@ -99,21 +99,36 @@ Amendment of 2026-10-18:
 
 ```ts
 const typed: ViewChange.AddRelation = {
-  op: 'add-relation', source: 'cloud.api', target: 'cloud.queue',
-  title: 'publishes', kind: 'async', technology: 'Kafka',
+  op: 'add-relation',
+  source: 'cloud.api',
+  target: 'cloud.queue',
+  title: 'publishes',
+  kind: 'async',
+  technology: 'Kafka',
 }
 //  → in api { … }:   -[async]-> cloud.queue 'publishes' {
 //                      technology 'Kafka'
 //                    }
 
-const named: ViewChange.AddElement = { op: 'add-element', parent: null, kind: 'system', title: 'Payment Service', name: 'payments' }
+const named: ViewChange.AddElement = {
+  op: 'add-element',
+  parent: null,
+  kind: 'system',
+  title: 'Payment Service',
+  name: 'payments',
+}
 //  → payments = system 'Payment Service'      (the canvas always sends `name`, US-012)
 
 const relTitle: ViewChange.ChangeTitle = { op: 'change-title', target: { relation: 'r1a2b3' }, title: 'reads orders' }
 //  → api -> db 'reads'   becomes   api -> db 'reads orders'
 
-const placed: ViewChange.AddDynamicStep = { op: 'add-dynamic-step', source: 'web', target: 'api', beforeStep: 1 }
-//  → inserted on its own line before the 2nd top-level step
+const placed: ViewChange.AddDynamicStep = {
+  op: 'add-dynamic-step',
+  source: 'web',
+  target: 'api',
+  beforeStep: 'step-02',
+}
+//  → inserted on its own line before the top-level statement of step 2
 
 const unstep: ViewChange.RemoveDynamicStep = { op: 'remove-dynamic-step', step: 'step-02:par.01' }
 //  → removes that step's statement (refused for steps of a chain)
@@ -160,16 +175,23 @@ Without an editor port (static build), the diagram renders with no editing affor
 Request:
 
 ```json
-{ "viewId": "index", "projectId": "default",
-  "change": { "op": "add-relation", "source": "customer", "target": "cloud" } }
+{
+  "viewId": "index",
+  "projectId": "default",
+  "change": { "op": "add-relation", "source": "customer", "target": "cloud" }
+}
 ```
 
 Success:
 
 ```json
-{ "success": true,
-  "location": { "uri": "file:///ws/model.c4",
-                "range": { "start": { "line": 3, "character": 4 }, "end": { "line": 3, "character": 15 } } } }
+{
+  "success": true,
+  "location": {
+    "uri": "file:///ws/model.c4",
+    "range": { "start": { "line": 3, "character": 4 }, "end": { "line": 3, "character": 15 } }
+  }
+}
 ```
 
 Failure:
@@ -191,8 +213,8 @@ modified documents.
 ```ts
 import { likec4rpc } from 'likec4:rpc'
 
-await likec4rpc.updateView({ projectId: 'default', viewId: 'index', change })   // resolves | throws Error(message)
-await likec4rpc.undoChange({ projectId: 'default' })                             // resolves | throws Error(message)
+await likec4rpc.updateView({ projectId: 'default', viewId: 'index', change }) // resolves | throws Error(message)
+await likec4rpc.undoChange({ projectId: 'default' }) // resolves | throws Error(message)
 await likec4rpc.redoChange({ projectId: 'default' })
 ```
 
@@ -205,18 +227,18 @@ Failed to apply view change:
 
 ## Errors
 
-| Code | Condition | Message (example) | User action |
-|---|---|---|---|
-| `not-found` | source/target/parent/element/relation/view missing at apply time, or undo/redo stack empty | `Element "cloud.ui" not found` / `Nothing to undo` | Refresh; the model changed |
-| `invalid-name` | explicit `name` does not match the identifier grammar | `Invalid identifier "billing api"` | Use letters, digits, `-`, `_` |
-| `name-collision` | explicit `name` already used by a sibling | `Element "cloud.billingApi" already exists` | Pick another name |
-| `unknown-kind` | element, deployment or relationship kind not declared in `specification {}` | `Unknown element kind "servise"` / `Unknown relationship kind "asinc"` | Declare it in the specification first |
-| `read-only-target` | parent/target defined in another project or outside the workspace, or a relation to retitle that is not defined in this project | `"shared.auth" is defined in another project` | Edit it in its own project |
-| `has-references` | delete-from-model while references exist | `Element "cloud.legacy" is referenced in 3 places` | Remove the references first |
-| `unsupported-in-view` | op not valid for the view type, or a step of a chain to remove | `add-dynamic-step is not supported in element views` / `Steps of a chain cannot be removed from the canvas` | — |
-| `invalid-result` | the edit introduced errors; it was reverted | `Change reverted: <first diagnostic message>` | Fix the surrounding DSL, then retry |
-| `apply-failed` | the editor/filesystem refused the write | `Failed to apply changes: <reason>` | Check that the file is writable |
-| `stale-undo` | file changed since the edit being undone | `File changed since this edit; undo unavailable` | Undo in the text editor |
+| Code                  | Condition                                                                                                                       | Message (example)                                                                                           | User action                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `not-found`           | source/target/parent/element/relation/view missing at apply time, or undo/redo stack empty                                      | `Element "cloud.ui" not found` / `Nothing to undo`                                                          | Refresh; the model changed            |
+| `invalid-name`        | explicit `name` does not match the identifier grammar                                                                           | `Invalid identifier "billing api"`                                                                          | Use letters, digits, `-`, `_`         |
+| `name-collision`      | explicit `name` already used by a sibling                                                                                       | `Element "cloud.billingApi" already exists`                                                                 | Pick another name                     |
+| `unknown-kind`        | element, deployment or relationship kind not declared in `specification {}`                                                     | `Unknown element kind "servise"` / `Unknown relationship kind "asinc"`                                      | Declare it in the specification first |
+| `read-only-target`    | parent/target defined in another project or outside the workspace, or a relation to retitle that is not defined in this project | `"shared.auth" is defined in another project`                                                               | Edit it in its own project            |
+| `has-references`      | delete-from-model while references exist                                                                                        | `Element "cloud.legacy" is referenced in 3 places`                                                          | Remove the references first           |
+| `unsupported-in-view` | op not valid for the view type, or a step of a chain to remove                                                                  | `add-dynamic-step is not supported in element views` / `Steps of a chain cannot be removed from the canvas` | —                                     |
+| `invalid-result`      | the edit introduced errors; it was reverted                                                                                     | `Change reverted: <first diagnostic message>`                                                               | Fix the surrounding DSL, then retry   |
+| `apply-failed`        | the editor/filesystem refused the write                                                                                         | `Failed to apply changes: <reason>`                                                                         | Check that the file is writable       |
+| `stale-undo`          | file changed since the edit being undone                                                                                        | `File changed since this edit; undo unavailable`                                                            | Undo in the text editor               |
 
 On the canvas, every code surfaces as a toast with the message. Through the vite RPC, the thrown
 `Error.message` is `[<code>] <message>`.

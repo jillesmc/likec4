@@ -9,7 +9,7 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
   `likec4 start`.
 - **Language-server unit cases** use the `changeElementStyle.spec.ts` harness: memfs
   (`vi.mock('node:fs')`), `createTestServices` + `WithFileSystem()`, and `stripIndent` fixtures.
-  Each case asserts the *full* resulting file text with an inline snapshot ("DSL before → op → DSL
+  Each case asserts the _full_ resulting file text with an inline snapshot ("DSL before → op → DSL
   after").
 - **Integration cases** run `LikeC4ModelChanges.applyChange` end-to-end. Without an LSP connection,
   the FS branch is exercised. With one, `Connection.workspace.applyEdit` is a fake recording the
@@ -22,52 +22,52 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
 
 ## Coverage Matrix
 
-| Source | Behavior | Unit | Integration | E2E |
-|---|---|---|---|---|
-| US-001 AC-1, AC-5 | relation written inside source block, rest untouched | UT-010 | IT-001 | E2E-001 |
-| US-001 AC-2 | VSCode: one WorkspaceEdit | — | IT-002 | manual (VSCode) |
-| US-001 AC-3/AC-4 | auto-include only when needed | UT-030, UT-031 | IT-003 | — |
-| US-001 EC-1 | source in other project → view's model{} | UT-011 | — | — |
-| US-001 EC-2/3/4 | no body, `}` same line, tabs | UT-001–UT-004 | — | — |
-| US-001 EC-5 | self / empty drop → no op | UT-060 | — | — |
-| US-001 EC-6 | duplicate relation allowed | UT-012 | — | — |
-| US-001 EC-7 | stale target → not-found | UT-040 | — | — |
-| US-001 EC-8 | invalid result reverted | — | IT-004 | — |
-| US-001 EC-9 | applyEdit refused → apply-failed | — | IT-005 | — |
-| US-001 EC-10 | two connects in order | UT-061 | IT-008 | — |
-| US-001 EC-11 / US-002 AC-5 | manual snapshot updated, no drift | UT-062 | — | E2E-002 |
-| US-002 AC-1, EC-1 | palette lists spec kinds / empty | UT-070, UT-071 | — | — |
-| US-002 AC-2, AC-3, EC-7, EC-8 | element placement rules | UT-013–UT-016 | — | E2E-002 |
-| US-002 AC-6 | no snapshot → auto layout | covered by IT-003 (no snapshot written) | — | — |
-| US-002 AC-7, EC-3 | cancel / empty title | UT-072 | — | — |
-| US-002 EC-2, EC-5 | slug + collision suffix + fallback | UT-020–UT-023 | — | — |
-| US-002 EC-4 | quote escaping | UT-024 | — | — |
-| US-002 EC-6 | read-only parent | UT-041 | — | — |
-| US-002 EC-9, US-011 EC-1/2 | unknown-kind, invalid-name, name-collision | UT-042–UT-044 | — | — |
-| US-003 | retitle variants | UT-100–UT-105 | — | — |
-| US-004 | exclude nodes/edges/multi/deployment | UT-110–UT-113 | IT-006 | E2E-003 |
-| US-004 EC-2 | no Del on nodes in dynamic views (superseded for steps by US-016) | UT-063 | — | — |
-| US-005 AC-1/2, EC-3 | reference listing blocks delete | UT-073, UT-120 | — | — |
-| US-005 AC-3/4 | remove element / relation statement | UT-121, UT-122 | — | — |
-| US-005 EC-1, EC-4 | menu absent | UT-074 | — | — |
-| US-005 EC-2 | server-side has-references | UT-123 | — | — |
-| US-006 | dev-server undo/redo | UT-130–UT-133 | IT-007 | E2E-004 |
-| US-006 EC-4 / US-018 | undo over an LSP connection (ADR-004; replaces "unsupported") | UT-134 | IT-009 | manual (VSCode) |
-| US-007 | deployment node placement | UT-140–UT-142 | — | — |
-| US-008 | instanceOf | UT-143–UT-145 | — | — |
-| US-009 | dynamic step append | UT-150–UT-152 | — | — |
-| US-010 | read-only: no affordances | UT-064 | — | existing `e2e` static smoke + E2E-005 |
-| US-011 AC-2 | error code shape | UT-045 | IT-010 | — |
-| US-011 AC-3 | serialised per project | — | IT-008 | — |
-| Ghost lifecycle (S2) | pending → confirmed / rejected | UT-065, UT-066 | — | E2E-001 |
-| US-012 | identifier suggestion, follow/override, validation | UT-200–UT-206 | — | E2E-006 |
-| US-013 | kind + technology on connect | UT-210–UT-214 | — | E2E-007 |
-| US-014 | relation retitle | UT-220–UT-225 | — | — |
-| US-015 | step position | UT-230–UT-233 | — | — |
-| US-016 | step removal | UT-240–UT-245 | — | E2E-008 |
-| US-017 | manual-layout notice | UT-250–UT-252 | — | — |
-| US-018 AC-3 | canvas undo keeps the snapshot in sync | UT-260 | — | E2E-009 (dev server); manual (VSCode) |
-| Existing ops unchanged | change-element-style, autolayout, property, snapshot | existing `changeElementStyle.spec.ts`, `viewChange.spec.ts`, `state.sync-queue.spec.ts` | — | existing `manual-layout-views.spec.ts` |
+| Source                        | Behavior                                                          | Unit                                                                                    | Integration | E2E                                    |
+| ----------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------- | -------------------------------------- |
+| US-001 AC-1, AC-5             | relation written inside source block, rest untouched              | UT-010                                                                                  | IT-001      | E2E-001                                |
+| US-001 AC-2                   | VSCode: one WorkspaceEdit                                         | —                                                                                       | IT-002      | manual (VSCode)                        |
+| US-001 AC-3/AC-4              | auto-include only when needed                                     | UT-030, UT-031                                                                          | IT-003      | —                                      |
+| US-001 EC-1                   | source in other project → view's model{}                          | UT-011                                                                                  | —           | —                                      |
+| US-001 EC-2/3/4               | no body, `}` same line, tabs                                      | UT-001–UT-004                                                                           | —           | —                                      |
+| US-001 EC-5                   | self / empty drop → no op                                         | UT-060                                                                                  | —           | —                                      |
+| US-001 EC-6                   | duplicate relation allowed                                        | UT-012                                                                                  | —           | —                                      |
+| US-001 EC-7                   | stale target → not-found                                          | UT-040                                                                                  | —           | —                                      |
+| US-001 EC-8                   | invalid result reverted                                           | —                                                                                       | IT-004      | —                                      |
+| US-001 EC-9                   | applyEdit refused → apply-failed                                  | —                                                                                       | IT-005      | —                                      |
+| US-001 EC-10                  | two connects in order                                             | UT-061                                                                                  | IT-008      | —                                      |
+| US-001 EC-11 / US-002 AC-5    | manual snapshot updated, no drift                                 | UT-062                                                                                  | —           | E2E-002                                |
+| US-002 AC-1, EC-1             | palette lists spec kinds / empty                                  | UT-070, UT-071                                                                          | —           | —                                      |
+| US-002 AC-2, AC-3, EC-7, EC-8 | element placement rules                                           | UT-013–UT-016                                                                           | —           | E2E-002                                |
+| US-002 AC-6                   | no snapshot → auto layout                                         | covered by IT-003 (no snapshot written)                                                 | —           | —                                      |
+| US-002 AC-7, EC-3             | cancel / empty title                                              | UT-072                                                                                  | —           | —                                      |
+| US-002 EC-2, EC-5             | slug + collision suffix + fallback                                | UT-020–UT-023                                                                           | —           | —                                      |
+| US-002 EC-4                   | quote escaping                                                    | UT-024                                                                                  | —           | —                                      |
+| US-002 EC-6                   | read-only parent                                                  | UT-041                                                                                  | —           | —                                      |
+| US-002 EC-9, US-011 EC-1/2    | unknown-kind, invalid-name, name-collision                        | UT-042–UT-044                                                                           | —           | —                                      |
+| US-003                        | retitle variants                                                  | UT-100–UT-105                                                                           | —           | —                                      |
+| US-004                        | exclude nodes/edges/multi/deployment                              | UT-110–UT-113                                                                           | IT-006      | E2E-003                                |
+| US-004 EC-2                   | no Del on nodes in dynamic views (superseded for steps by US-016) | UT-063                                                                                  | —           | —                                      |
+| US-005 AC-1/2, EC-3           | reference listing blocks delete                                   | UT-073, UT-120                                                                          | —           | —                                      |
+| US-005 AC-3/4                 | remove element / relation statement                               | UT-121, UT-122                                                                          | —           | —                                      |
+| US-005 EC-1, EC-4             | menu absent                                                       | UT-074                                                                                  | —           | —                                      |
+| US-005 EC-2                   | server-side has-references                                        | UT-123                                                                                  | —           | —                                      |
+| US-006                        | dev-server undo/redo                                              | UT-130–UT-133                                                                           | IT-007      | E2E-004                                |
+| US-006 EC-4 / US-018          | undo over an LSP connection (ADR-004; replaces "unsupported")     | UT-134                                                                                  | IT-009      | manual (VSCode)                        |
+| US-007                        | deployment node placement                                         | UT-140–UT-142                                                                           | —           | —                                      |
+| US-008                        | instanceOf                                                        | UT-143–UT-145                                                                           | —           | —                                      |
+| US-009                        | dynamic step append                                               | UT-150–UT-152                                                                           | —           | —                                      |
+| US-010                        | read-only: no affordances                                         | UT-064                                                                                  | —           | existing `e2e` static smoke + E2E-005  |
+| US-011 AC-2                   | error code shape                                                  | UT-045                                                                                  | IT-010      | —                                      |
+| US-011 AC-3                   | serialised per project                                            | —                                                                                       | IT-008      | —                                      |
+| Ghost lifecycle (S2)          | pending → confirmed / rejected                                    | UT-065, UT-066                                                                          | —           | E2E-001                                |
+| US-012                        | identifier suggestion, follow/override, validation                | UT-200–UT-206                                                                           | —           | E2E-006                                |
+| US-013                        | kind + technology on connect                                      | UT-210–UT-214                                                                           | —           | E2E-007                                |
+| US-014                        | relation retitle                                                  | UT-220–UT-225                                                                           | —           | —                                      |
+| US-015                        | step position                                                     | UT-230–UT-233                                                                           | —           | —                                      |
+| US-016                        | step removal                                                      | UT-240–UT-245                                                                           | —           | E2E-008                                |
+| US-017                        | manual-layout notice                                              | UT-250–UT-252                                                                           | —           | —                                      |
+| US-018 AC-3                   | canvas undo keeps the snapshot in sync                            | UT-260                                                                                  | —           | E2E-009 (dev server); manual (VSCode)  |
+| Existing ops unchanged        | change-element-style, autolayout, property, snapshot              | existing `changeElementStyle.spec.ts`, `viewChange.spec.ts`, `state.sync-queue.spec.ts` | —           | existing `manual-layout-views.spec.ts` |
 
 ## Unit Tests
 
@@ -249,9 +249,9 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
 
 #### Dynamic steps — `addDynamicStep.ts`, `removeDynamicStep.ts` (US-015, US-016)
 
-- **UT-230** (happy): `beforeStep: 1` → the step is inserted on its own line before the 2nd
-  top-level statement, with its indentation.
-- **UT-231** (boundary): `beforeStep` ≥ number of steps → appended at the end.
+- **UT-230** (happy): `beforeStep: 'step-02'` → the step is inserted on its own line before that
+  step's top-level statement, with its indentation; for a step inside a block, before the block.
+- **UT-231** (boundary): unknown `beforeStep` → appended at the end.
 - **UT-232** (happy): the connect popover lists `At the end` + one entry per top-level step.
 - **UT-233** (boundary): no steps → no position field.
 - **UT-240** (happy): `step-02` (a single top-level step) → its line is removed.
