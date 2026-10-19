@@ -124,13 +124,26 @@ export namespace ViewChange {
   }
 
   /**
-   * Add a step `source -> target` at the end of the top-level steps of a dynamic view
+   * Add a step `source -> target` at the end of the top-level steps of a dynamic view,
+   * or before the top-level statement that contains the step `beforeStep`
    */
   export interface AddDynamicStep {
     op: 'add-dynamic-step'
     source: scalar.Fqn
     target: scalar.Fqn
     title?: string
+    /**
+     * Id of the step to insert before (its top-level statement); at the end when omitted or not found
+     */
+    beforeStep?: scalar.StepPath
+  }
+
+  /**
+   * Remove a step from a dynamic view (steps of a chain `a -> b -> c` are refused)
+   */
+  export interface RemoveDynamicStep {
+    op: 'remove-dynamic-step'
+    step: scalar.StepPath
   }
 
   export type ExcludeTarget =
@@ -172,6 +185,7 @@ export type ViewChange =
   | ViewChange.AddDeploymentNode
   | ViewChange.AddInstance
   | ViewChange.AddDynamicStep
+  | ViewChange.RemoveDynamicStep
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
