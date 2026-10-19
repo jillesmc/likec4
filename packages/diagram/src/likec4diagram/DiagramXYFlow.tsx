@@ -28,6 +28,7 @@ import {
   excludeChangeOf,
   Ghosts,
   innermostNode,
+  MANUAL_LAYOUT_NOTICE,
   relationshipKinds,
   relationTitleTargetOf,
   removeStepChangesOf,
@@ -35,6 +36,7 @@ import {
   stepPositions,
   useCanvasDrop,
   useConnectPrompt,
+  useManualLayoutToast,
   useTitleEditing,
 } from '../editor-ui'
 import {
@@ -214,6 +216,10 @@ export function LikeC4DiagramXYFlow({
     ...props
   } = useDiagramSelector(selectXYProps)
   const isEditorBusy = useEditorActorStateHasTag('busy')
+  // New elements in a view with manual layout stay where they are dropped
+  const viewId = useDiagramSelector(s => s.context.view.id)
+  const isManualLayout = useDiagramSelector(s => s.context.view._layout === 'manual')
+  const manualLayoutToast = useManualLayoutToast(viewId, isManualLayout)
   // Palette of kinds to create items, available only with the model
   const palette = useMemo(
     () => itemsCreatable && likec4model ? canvasPalette(viewType, likec4model) : null,
@@ -230,6 +236,7 @@ export function LikeC4DiagramXYFlow({
     palette?.config ?? { viewType: 'element', kinds: [] },
     (change, position) => {
       diagram.editorActor().send({ type: 'change.view', change, position })
+      manualLayoutToast.onDrop()
     },
     message => {
       diagram.editorActor().send({ type: 'error.show', message })
@@ -466,10 +473,15 @@ export function LikeC4DiagramXYFlow({
       {itemsCreatable && <Ghosts />}
       {palette && (
         <Panel position="center-right">
-          <ElementPalette title={palette.title} items={palette.items} emptyMessage={palette.emptyMessage} />
+          <ElementPalette
+            title={palette.title}
+            items={palette.items}
+            emptyMessage={palette.emptyMessage}
+            notice={isManualLayout ? MANUAL_LAYOUT_NOTICE : undefined} />
         </Panel>
       )}
       {palette && canvasDrop.popover}
+      {palette && manualLayoutToast.toast}
       {titlesEditable && titleEditing.editor}
       {nodesConnectable && connectPrompt.prompt}
       {children}

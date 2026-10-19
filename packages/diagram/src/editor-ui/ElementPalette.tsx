@@ -39,14 +39,19 @@ export type PaletteItem = {
 /**
  * Kinds from the specification (and special items), dragged onto the canvas to create elements
  */
-export function ElementPalette({ title, items, emptyMessage }: {
+export function ElementPalette({ title, items, emptyMessage, notice }: {
   title: string
   items: readonly PaletteItem[]
   emptyMessage: string
+  /**
+   * Shown under the title, e.g. that the view has a manual layout
+   */
+  notice?: string | undefined
 }) {
   return (
     <div data-likec4-palette style={panel} className="nodrag nopan nowheel">
       <div style={{ fontWeight: 600, opacity: 0.7 }}>{title}</div>
+      {notice && <div data-likec4-palette-notice style={{ maxWidth: 180, opacity: 0.7 }}>{notice}</div>}
       {items.length === 0
         ? <div style={{ opacity: 0.7 }}>{emptyMessage}</div>
         : items.map(({ kind, label }) => (
