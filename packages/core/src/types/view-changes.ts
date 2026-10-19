@@ -85,11 +85,13 @@ export namespace ViewChange {
   }
 
   /**
-   * Change the title of an element, deployment node or deployed instance (in the model, not only in the view)
+   * Change the title of an element, deployment node, deployed instance or relation
+   * (in the model, not only in the view).
+   * An empty title removes the title of a relation.
    */
   export interface ChangeTitle {
     op: 'change-title'
-    target: scalar.Fqn | scalar.DeploymentFqn
+    target: scalar.Fqn | scalar.DeploymentFqn | { relation: scalar.RelationId }
     title: string
   }
 
