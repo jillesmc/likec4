@@ -1,4 +1,4 @@
-import type { Fqn, ViewId } from '@likec4/core'
+import type { Fqn, RelationshipKind, ViewId } from '@likec4/core'
 import { TextDocument } from 'langium'
 import stripIndent from 'strip-indent'
 import { describe, expect, it, vi } from 'vitest'
@@ -566,5 +566,61 @@ describe('add-relation: source from another project', () => {
     expect(computed.view('index' as ViewId).$view.edges.map(e => [e.source, e.target])).toEqual([
       ['@projectB.cloud', 'customer'],
     ])
+  })
+})
+
+describe('add-relation: kind and technology', () => {
+  const files = {
+    'model.c4': `
+      specification {
+        element system
+        relationship async
+      }
+      model {
+        api = system 'API' {
+          description 'Public API'
+        }
+        queue = system 'Queue'
+      }
+      views {
+        view index {
+          include *
+        }
+      }
+    `,
+  }
+  const withProps = (props: { title?: string; kind?: RelationshipKind; technology?: string }) => ({
+    viewId: 'index' as ViewId,
+    change: { op: 'add-relation' as const, source: 'api' as Fqn, target: 'queue' as Fqn, ...props },
+  })
+
+  it('UT-210: writes the kind in the connector', async () => {
+    const ws = await memfsWorkspace(files)
+    expect(await ws.apply(withProps({ kind: 'async' as RelationshipKind }))).toMatchObject({ success: true })
+    expect(ws.read('model.c4')).toContain(`    description 'Public API'\n    -[async]-> queue\n  }`)
+  })
+
+  it('UT-211: writes the technology as a body property, after the title', async () => {
+    const ws = await memfsWorkspace(files)
+    expect(await ws.apply(withProps({ title: 'publishes', kind: 'async' as RelationshipKind, technology: 'Kafka' })))
+      .toMatchObject({
+        success: true,
+      })
+    expect(ws.read('model.c4')).toContain(
+      `    description 'Public API'\n    -[async]-> queue 'publishes' {\n      technology 'Kafka'\n    }\n  }`,
+    )
+    const model = await ws.services.likec4.ModelBuilder.computeModel()
+    const relation = [...model.relationships()].find(r => r.source.id === 'api')
+    expect(relation).toMatchObject({ title: 'publishes', kind: 'async', technology: 'Kafka' })
+  })
+
+  it('UT-212: rejects an undeclared kind without writing', async () => {
+    const ws = await memfsWorkspace(files)
+    const before = ws.read('model.c4')
+    expect(await ws.apply(withProps({ kind: 'sync' as RelationshipKind }))).toMatchObject({
+      success: false,
+      code: 'unknown-kind',
+    })
+    expect(ws.read('model.c4')).toBe(before)
   })
 })

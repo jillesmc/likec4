@@ -10,6 +10,7 @@ import {
   appendBody,
   appendToBlock,
   appendTopLevelBlock,
+  indentUnit,
   quote,
 } from './_anchors'
 import { findElementDefinition, fqnRefText } from './_lookup'
@@ -33,7 +34,7 @@ export function addRelation(
   services: LikeC4Services,
   { projectId, lookup, model, change }: AddRelationArg,
 ): ModelChangePlan {
-  const { source, target, title } = change
+  const { source, target, title, kind, technology } = change
   if (lookup.view[_type] !== 'element') {
     throw new ModelChangeError(
       'unsupported-in-view',
@@ -46,7 +47,17 @@ export function addRelation(
     }
   }
 
+  if (kind && !Object.hasOwn(model.specification.relationships, kind)) {
+    throw new ModelChangeError('unknown-kind', `Unknown relationship kind "${kind}"`)
+  }
+
+  const connector = kind ? `-[${kind}]->` : '->'
   const titleSuffix = title ? ' ' + quote(title) : ''
+  // Technology goes in a body: positional technology requires a description before it
+  const relationLines = (head: string, unit: string) =>
+    technology
+      ? [`${head} {`, `${unit}technology ${quote(technology)}`, '}']
+      : [head]
   let uri: string
   let anchored: AnchoredEdit
 
@@ -54,20 +65,23 @@ export function addRelation(
   if (definition) {
     const { doc, node } = definition
     const nodeCst = nonNullable(node.$cstNode, 'element has no cst node')
-    const line = `-> ${fqnRefText(target)}${titleSuffix}`
+    const lines = relationLines(`${connector} ${fqnRefText(target)}${titleSuffix}`, indentUnit(doc.textDocument))
     uri = doc.textDocument.uri
     anchored = node.body?.$cstNode
-      ? appendToBlock(doc.textDocument, nodeCst, node.body.$cstNode, [line])
-      : appendBody(doc.textDocument, nodeCst, [line])
+      ? appendToBlock(doc.textDocument, nodeCst, node.body.$cstNode, lines)
+      : appendBody(doc.textDocument, nodeCst, lines)
   } else {
     // Source is defined in another project (imported)
     const doc = lookup.doc
-    const line = `${fqnRefText(source)} -> ${fqnRefText(target)}${titleSuffix}`
+    const lines = relationLines(
+      `${fqnRefText(source)} ${connector} ${fqnRefText(target)}${titleSuffix}`,
+      indentUnit(doc.textDocument),
+    )
     const modelCst = doc.parseResult.value.models[0]?.$cstNode
     uri = doc.textDocument.uri
     anchored = modelCst
-      ? appendToBlock(doc.textDocument, modelCst, modelCst, [line])
-      : appendTopLevelBlock(doc.textDocument, 'model', [line])
+      ? appendToBlock(doc.textDocument, modelCst, modelCst, lines)
+      : appendTopLevelBlock(doc.textDocument, 'model', lines)
   }
 
   const plan: ModelChangePlan = {
