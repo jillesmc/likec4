@@ -2,11 +2,16 @@ import type { XYPoint } from '@likec4/core/geometry'
 import type { RelationshipKind, ViewChange } from '@likec4/core/types'
 import { ViewportPortal } from '@xyflow/react'
 import { type KeyboardEvent, type ReactNode, useState } from 'react'
+import type { StepPosition } from './steps'
 
 export type ConnectValues = {
   title: string
   kind: string
   technology: string
+  /**
+   * Step to insert before, empty for "At the end"
+   */
+  position: string
 }
 
 /**
@@ -30,21 +35,46 @@ export function connectChange(
   }
 }
 
+/**
+ * The step to add, with the title and position when given
+ */
+export function stepChange(
+  base: ViewChange.AddDynamicStep,
+  values: ConnectValues,
+  positions: readonly StepPosition[],
+): ViewChange.AddDynamicStep {
+  const title = values.title.trim()
+  const before = positions.find(p => p.step === values.position)
+  return {
+    op: 'add-dynamic-step',
+    source: base.source,
+    target: base.target,
+    ...title && { title },
+    ...before && { beforeStep: before.step },
+  }
+}
+
 const inputStyle = { width: 150, fontSize: 13, padding: '2px 6px' }
 
 /**
- * Prompt shown after connecting two elements: title, kind and technology, all optional.
+ * Prompt shown after connecting two elements, all fields optional:
+ * - relations: title, kind and technology
+ * - dynamic steps: title and position
  * Enter confirms with what is filled, Escape cancels.
  */
-export function ConnectPrompt({ kinds, onConfirm, onCancel }: {
+export function ConnectPrompt({ kinds, positions, onConfirm, onCancel }: {
   /**
-   * Relationship kinds declared in the specification
+   * Relationship kinds declared in the specification (relations)
    */
   kinds: readonly RelationshipKind[]
+  /**
+   * Where a step can be inserted; given only for dynamic steps
+   */
+  positions?: readonly StepPosition[] | undefined
   onConfirm: (values: ConnectValues) => void
   onCancel: () => void
 }) {
-  const [values, setValues] = useState<ConnectValues>({ title: '', kind: '', technology: '' })
+  const [values, setValues] = useState<ConnectValues>({ title: '', kind: '', technology: '', position: '' })
   const set = (key: keyof ConnectValues) => (e: { target: { value: string } }) =>
     setValues(v => ({ ...v, [key]: e.target.value }))
   const onKeyDown = (e: KeyboardEvent) => {
@@ -58,6 +88,7 @@ export function ConnectPrompt({ kinds, onConfirm, onCancel }: {
         break
     }
   }
+  const isStep = positions !== undefined
   return (
     <div
       data-likec4-connect-prompt
@@ -73,55 +104,72 @@ export function ConnectPrompt({ kinds, onConfirm, onCancel }: {
         boxShadow: 'var(--mantine-shadow-md)',
       }}>
       <input
-        aria-label="Relation title"
+        aria-label={isStep ? 'Step title' : 'Relation title'}
         placeholder="Title"
         autoFocus
         value={values.title}
         onChange={set('title')}
         style={inputStyle} />
-      {kinds.length > 0 && (
+      {!isStep && kinds.length > 0 && (
         <select aria-label="Relation kind" value={values.kind} onChange={set('kind')} style={{ fontSize: 13 }}>
           <option value="">no kind</option>
           {kinds.map(kind => <option key={kind} value={kind}>{kind}</option>)}
         </select>
       )}
-      <input
-        aria-label="Relation technology"
-        placeholder="Technology"
-        value={values.technology}
-        onChange={set('technology')}
-        style={inputStyle} />
-      <button type="button" onClick={() => onConfirm(values)}>Connect</button>
+      {!isStep && (
+        <input
+          aria-label="Relation technology"
+          placeholder="Technology"
+          value={values.technology}
+          onChange={set('technology')}
+          style={inputStyle} />
+      )}
+      {isStep && positions.length > 0 && (
+        <select aria-label="Step position" value={values.position} onChange={set('position')} style={{ fontSize: 13 }}>
+          <option value="">At the end</option>
+          {positions.map(p => <option key={p.step} value={p.step}>{p.label}</option>)}
+        </select>
+      )}
+      <button type="button" onClick={() => onConfirm(values)}>{isStep ? 'Add step' : 'Connect'}</button>
       <button type="button" onClick={onCancel}>Cancel</button>
     </div>
   )
 }
 
+type Pending =
+  | { change: ViewChange.AddRelation; position: XYPoint }
+  | { change: ViewChange.AddDynamicStep; position: XYPoint; positions: readonly StepPosition[] }
+
 /**
- * Asks for the details of a relation created by connecting two elements,
+ * Asks for the details of a relation (or a dynamic step) created by connecting two elements,
  * at the point where the connection was released
  */
 export function useConnectPrompt(
   kinds: readonly RelationshipKind[],
-  onAdd: (change: ViewChange.AddRelation) => void,
+  onAdd: (change: ViewChange.AddRelation | ViewChange.AddDynamicStep) => void,
 ): {
-  open: (change: ViewChange.AddRelation, position: XYPoint) => void
+  open: (pending: Pending) => void
   prompt: ReactNode
 } {
-  const [pending, setPending] = useState<{ change: ViewChange.AddRelation; position: XYPoint } | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
   const prompt = pending && (
     <ViewportPortal>
       <div style={{ position: 'absolute', transform: `translate(${pending.position.x}px, ${pending.position.y}px)` }}>
         <ConnectPrompt
           kinds={kinds}
+          positions={'positions' in pending ? pending.positions : undefined}
           onCancel={() => setPending(null)}
           onConfirm={values => {
             setPending(null)
-            onAdd(connectChange(pending.change, values, kinds))
+            onAdd(
+              'positions' in pending
+                ? stepChange(pending.change, values, pending.positions)
+                : connectChange(pending.change, values, kinds),
+            )
           }}
         />
       </div>
     </ViewportPortal>
   )
-  return { open: (change, position) => setPending({ change, position }), prompt }
+  return { open: setPending, prompt }
 }

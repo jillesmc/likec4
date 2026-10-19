@@ -30,7 +30,9 @@ import {
   innermostNode,
   relationshipKinds,
   relationTitleTargetOf,
+  removeStepChangesOf,
   resolveConnection,
+  stepPositions,
   useCanvasDrop,
   useConnectPrompt,
   useTitleEditing,
@@ -351,8 +353,11 @@ export function LikeC4DiagramXYFlow({
         // Deleting on the canvas excludes items from this view (the model is not changed).
         // Items disappear once the view is synced, so nothing is removed locally.
         if (!enableReadOnly) {
-          const change = excludeChangeOf(viewType, nodes, edges, id => xyflow.getNode(id))
-          if (change) {
+          // In dynamic views (no `exclude` there), deleting a step removes it from the view
+          const changes = viewType === 'dynamic'
+            ? removeStepChangesOf(edges)
+            : [excludeChangeOf(viewType, nodes, edges, id => xyflow.getNode(id))].filter(c => c !== null)
+          for (const change of changes) {
             diagram.editorActor().send({ type: 'change.view', change })
           }
         }
@@ -376,14 +381,19 @@ export function LikeC4DiagramXYFlow({
         const toNode = connection.toNode
           ?? innermostNode(xyflow.getIntersectingNodes({ ...released, width: 1, height: 1 }))
         const change = resolveConnection(connection.fromNode, toNode, viewType)
-        switch (true) {
-          case change?.op === 'add-relation':
-            // Ask for title, kind and technology first
-            connectPrompt.open(change, released)
+        // Ask for the details first: title, kind and technology (relations), title and position (steps)
+        switch (change?.op) {
+          case 'add-relation':
+            connectPrompt.open({ change, position: released })
             break
-          case !!change:
-            diagram.editorActor().send({ type: 'change.view', change })
+          case 'add-dynamic-step': {
+            const titleOf = (id: string) => {
+              const title = xyflow.getNode(id)?.data.title
+              return typeof title === 'string' ? title : id
+            }
+            connectPrompt.open({ change, position: released, positions: stepPositions(xyflow.getEdges(), titleOf) })
             break
+          }
         }
       })}
       onPaneClick={useCallbackRef((e) => {

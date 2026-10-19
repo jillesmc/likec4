@@ -76,6 +76,7 @@ export const isModelChange = (change: t.ViewChange): boolean =>
   || change.op === 'add-deployment-node'
   || change.op === 'add-instance'
   || change.op === 'add-dynamic-step'
+  || change.op === 'remove-dynamic-step'
 
 export interface EditorActorInput {
   viewId: t.ViewId

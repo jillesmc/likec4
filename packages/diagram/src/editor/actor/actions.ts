@@ -258,7 +258,8 @@ export const trackChange = () =>
         ghosts: [...ghosts, { change, position: event.position ?? null }],
       }
     }
-    if (change.op === 'exclude-from-view' || change.op === 'delete-from-model') {
+    // Removed items leave the manual layout too
+    if (change.op === 'exclude-from-view' || change.op === 'delete-from-model' || change.op === 'remove-dynamic-step') {
       return {
         refreshManualLayout: true,
       }
