@@ -1,4 +1,4 @@
-import type { Fqn, ViewId } from '@likec4/core'
+import type { Fqn, RelationId, ViewId } from '@likec4/core'
 import { describe, expect, it, vi } from 'vitest'
 import { memfsWorkspace } from './__test__/memfsWorkspace'
 
@@ -136,5 +136,62 @@ describe('change-title', () => {
       code: 'not-found',
       error: 'Element "nope" not found',
     })
+  })
+})
+
+describe('change-title of a relation', () => {
+  const relationTitle = (relation: string, title: string) => ({
+    viewId: 'index' as ViewId,
+    change: { op: 'change-title' as const, target: { relation: relation as RelationId }, title },
+  })
+  const model = (relation: string) => `
+    specification { element service }
+    model {
+      api = service 'API' {
+        ${relation}
+      }
+      db = service 'DB'
+    }
+  `
+  // Applies the title to the only relation of the model, returns the model file
+  async function retitle(relation: string, title: string) {
+    const ws = await workspace(model(relation))
+    const computed = await ws.services.likec4.ModelBuilder.computeModel()
+    const [rel] = [...computed.relationships()]
+    const res = await ws.apply(relationTitle(rel!.id, title))
+    return { res, text: ws.read('model.c4') }
+  }
+
+  it('UT-220: replaces the positional title', async () => {
+    const { res, text } = await retitle(`-> db 'reads'`, 'reads orders')
+    expect(res).toMatchObject({ success: true })
+    expect(text).toContain(`    -> db 'reads orders'\n`)
+  })
+
+  it('UT-221: inserts the title after the target, also before tags and body', async () => {
+    expect((await retitle(`-> db`, 'reads')).text).toContain(`    -> db 'reads'\n`)
+    expect((await retitle(`-> db #critical {\n          technology 'SQL'\n        }`, 'reads')).text)
+      .toContain(`    -> db 'reads' #critical {`)
+  })
+
+  it('UT-222: updates the title property of the body', async () => {
+    const { text } = await retitle(`-> db {\n          title 'reads'\n        }`, 'reads orders')
+    expect(text).toContain(`      title 'reads orders'\n`)
+  })
+
+  it('UT-223: an empty title removes the literal or the property', async () => {
+    expect((await retitle(`-> db 'reads'`, '')).text).toContain(`    -> db\n`)
+    const property = (await retitle(`-> db {\n          title 'reads'\n          technology 'SQL'\n        }`, '')).text
+    expect(property).not.toContain(`title`)
+    expect(property).toContain(`technology 'SQL'`)
+    // with a positional description, the title is kept empty (the description would become the title)
+    expect((await retitle(`-> db 'reads' 'all orders'`, '')).text).toContain(`    -> db '' 'all orders'\n`)
+  })
+
+  it('UT-224: unknown relation → not-found, nothing written', async () => {
+    const ws = await workspace(model(`-> db 'reads'`))
+    const before = ws.read('model.c4')
+    expect(await ws.apply(relationTitle('missing', 'x'))).toMatchObject({ success: false, code: 'not-found' })
+    expect(ws.read('model.c4')).toBe(before)
   })
 })

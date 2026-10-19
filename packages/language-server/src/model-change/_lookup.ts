@@ -1,4 +1,5 @@
-import { type ProjectId, Fqn, splitGlobalFqn } from '@likec4/core'
+import { type ProjectId, type RelationId, Fqn, splitGlobalFqn } from '@likec4/core'
+import type { AstNode } from 'langium'
 import { type ParsedLikeC4LangiumDocument, ast, isParsedLikeC4LangiumDocument } from '../ast'
 import type { LikeC4Services } from '../module'
 
@@ -54,6 +55,30 @@ export function findDeploymentDefinition(
     const node = desc.node ?? locator.getAstNode(doc.parseResult.value, desc.path)
     if (ast.isDeploymentNode(node) || ast.isDeployedInstance(node)) {
       return { doc, node }
+    }
+  }
+  return null
+}
+
+/**
+ * Finds the definition of the model or deployment relation in the project
+ */
+export function findRelation(
+  services: LikeC4Services,
+  projectId: ProjectId,
+  id: RelationId,
+): { doc: ParsedLikeC4LangiumDocument; node: AstNode } | null {
+  const documents = services.shared.workspace.LangiumDocuments.projectDocuments(projectId)
+  for (const doc of documents) {
+    if (!isParsedLikeC4LangiumDocument(doc)) {
+      continue
+    }
+    const relation = doc.c4Relations.find(r => r.id === id) ?? doc.c4DeploymentRelations.find(r => r.id === id)
+    if (relation) {
+      const node = services.workspace.AstNodeLocator.getAstNode(doc.parseResult.value, relation.astPath)
+      if (node) {
+        return { doc, node }
+      }
     }
   }
   return null

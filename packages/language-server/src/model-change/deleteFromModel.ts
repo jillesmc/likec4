@@ -1,38 +1,17 @@
-import { type ProjectId, type RelationId, type ViewChange, DeploymentFqn, Fqn, nonNullable } from '@likec4/core'
+import { type ProjectId, type ViewChange, DeploymentFqn, Fqn, nonNullable } from '@likec4/core'
 import type { LikeC4Model } from '@likec4/core/model'
 import type { UnknownParsed } from '@likec4/core/types'
 import type { AstNode } from 'langium'
-import { type ParsedLikeC4LangiumDocument, ast, isParsedLikeC4LangiumDocument } from '../ast'
+import { type ParsedLikeC4LangiumDocument, ast } from '../ast'
 import type { LikeC4Services } from '../module'
 import { type ModelChangePlan, addToPlan, removeNode } from './_anchors'
-import { findDeploymentDefinition, findElementDefinition } from './_lookup'
+import { findDeploymentDefinition, findElementDefinition, findRelation } from './_lookup'
 import { ModelChangeError } from './ModelChangeError'
 
 export interface DeleteFromModelArg {
   projectId: ProjectId
   model: LikeC4Model<UnknownParsed>
   change: ViewChange.DeleteFromModel
-}
-
-function findRelation(
-  services: LikeC4Services,
-  projectId: ProjectId,
-  id: RelationId,
-): { doc: ParsedLikeC4LangiumDocument; node: AstNode } | null {
-  const documents = services.shared.workspace.LangiumDocuments.projectDocuments(projectId)
-  for (const doc of documents) {
-    if (!isParsedLikeC4LangiumDocument(doc)) {
-      continue
-    }
-    const relation = doc.c4Relations.find(r => r.id === id) ?? doc.c4DeploymentRelations.find(r => r.id === id)
-    if (relation) {
-      const node = services.workspace.AstNodeLocator.getAstNode(doc.parseResult.value, relation.astPath)
-      if (node) {
-        return { doc, node }
-      }
-    }
-  }
-  return null
 }
 
 /**

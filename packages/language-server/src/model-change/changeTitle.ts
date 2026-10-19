@@ -1,12 +1,12 @@
-import { type ProjectId, type ViewChange, Fqn, nonNullable } from '@likec4/core'
+import { type ProjectId, type RelationId, type ViewChange, Fqn, nonNullable } from '@likec4/core'
 import type { LikeC4Model } from '@likec4/core/model'
 import type { UnknownParsed } from '@likec4/core/types'
 import { type CstNode, type TextDocument, GrammarUtils } from 'langium'
 import type { TextEdit } from 'vscode-languageserver-types'
 import { ast } from '../ast'
 import type { LikeC4Services } from '../module'
-import { type ModelChangePlan, quote } from './_anchors'
-import { findDeploymentDefinition, findElementDefinition } from './_lookup'
+import { type ModelChangePlan, quote, removeNode } from './_anchors'
+import { findDeploymentDefinition, findElementDefinition, findRelation } from './_lookup'
 import { ModelChangeError } from './ModelChangeError'
 
 const { findNodeForProperty, findNodesForProperty } = GrammarUtils
@@ -61,11 +61,66 @@ function titleEdit(textDocument: TextDocument, node: Titled, title: string): Tex
 }
 
 /**
- * Plans the title change of an element, deployment node or deployed instance.
+ * Title edit of a relation: updates the `title` property of the body or the positional title,
+ * inserts the positional title after the target, or removes the title when empty
+ */
+function relationTitleEdit(textDocument: TextDocument, node: ast.Relation, title: string): TextEdit | null {
+  const cst = nonNullable(node.$cstNode, 'relation has no cst')
+  const property = node.body?.props.find(p => ast.isRelationStringProperty(p) && p.key === 'title')
+  const propertyValue = property?.$cstNode ? findNodeForProperty(property.$cstNode, 'value') : undefined
+  const positional = findNodeForProperty(cst, 'title')
+  const literal = quote(title)
+  switch (true) {
+    case !!propertyValue && title === '':
+      return removeNode(textDocument, nonNullable(property?.$cstNode)).edit
+    case !!propertyValue:
+      return propertyValue.text === literal ? null : { range: propertyValue.range, newText: literal }
+    // the positional description would become the title, keep an empty one
+    case !!positional && title === '' && node.description !== undefined:
+      return { range: positional.range, newText: `''` }
+    case !!positional && title === '': {
+      const target = nonNullable(findNodeForProperty(cst, 'target'), 'relation has no target')
+      return { range: { start: target.range.end, end: positional.range.end }, newText: '' }
+    }
+    case !!positional:
+      return positional.text === literal ? null : { range: positional.range, newText: literal }
+    case title === '':
+      return null
+    default: {
+      const target = nonNullable(findNodeForProperty(cst, 'target'), 'relation has no target')
+      return { range: { start: target.range.end, end: target.range.end }, newText: ' ' + literal }
+    }
+  }
+}
+
+function changeRelationTitle(
+  services: LikeC4Services,
+  { projectId }: ChangeTitleArg,
+  id: RelationId,
+  title: string,
+): ModelChangePlan {
+  const definition = findRelation(services, projectId, id)
+  // Relations of other projects are not imported, so they are never shown in this project
+  if (!definition || !ast.isRelation(definition.node)) {
+    throw new ModelChangeError('not-found', `Relation "${id}" not found`)
+  }
+  const { doc, node } = definition
+  const uri = doc.textDocument.uri
+  const edit = relationTitleEdit(doc.textDocument, node, title)
+  const range = edit?.range ?? nonNullable(node.$cstNode).range
+  return { edits: edit ? new Map([[uri, [edit]]]) : new Map(), modifiedRange: { uri, range } }
+}
+
+/**
+ * Plans the title change of an element, deployment node, deployed instance or relation.
  * Updates the `title` property of the body, or the positional title, or inserts the positional title.
  */
-export function changeTitle(services: LikeC4Services, { projectId, model, change }: ChangeTitleArg): ModelChangePlan {
+export function changeTitle(services: LikeC4Services, arg: ChangeTitleArg): ModelChangePlan {
+  const { projectId, model, change } = arg
   const title = change.title.trim()
+  if (typeof change.target === 'object') {
+    return changeRelationTitle(services, arg, change.target.relation, title)
+  }
   if (title.length === 0) {
     throw new ModelChangeError('invalid-name', 'Title must not be empty')
   }
