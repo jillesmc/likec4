@@ -59,6 +59,14 @@ export namespace ViewChange {
     source: scalar.Fqn
     target: scalar.Fqn
     title?: string
+    /**
+     * Relationship kind, declared in the specification (`-[kind]->`)
+     */
+    kind?: scalar.RelationshipKind
+    /**
+     * Written as a `technology` property in the relation body
+     */
+    technology?: string
   }
 
   /**
