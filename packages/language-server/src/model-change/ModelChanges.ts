@@ -17,6 +17,7 @@ import { changeViewLayout } from './changeViewLayout'
 import { deleteFromModel } from './deleteFromModel'
 import { excludeFromView } from './excludeFromView'
 import { ModelChangeError } from './ModelChangeError'
+import { removeDynamicStep } from './removeDynamicStep'
 import { changePropertyHandler, preparePayload } from './viewChange'
 
 const logger = mainLogger.getChild('model-changes')
@@ -33,6 +34,7 @@ type ModelChangeOp =
   | ViewChange.AddDeploymentNode
   | ViewChange.AddInstance
   | ViewChange.AddDynamicStep
+  | ViewChange.RemoveDynamicStep
 
 const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   change.op === 'add-relation'
@@ -43,6 +45,7 @@ const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   || change.op === 'add-deployment-node'
   || change.op === 'add-instance'
   || change.op === 'add-dynamic-step'
+  || change.op === 'remove-dynamic-step'
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
@@ -299,7 +302,11 @@ export class LikeC4ModelChanges {
           break
         }
         case 'add-dynamic-step': {
-          plan = addDynamicStep({ lookup, model, change })
+          plan = addDynamicStep(this.services, { lookup, model, change })
+          break
+        }
+        case 'remove-dynamic-step': {
+          plan = removeDynamicStep(this.services, { lookup, model, change })
           break
         }
         default:

@@ -3,6 +3,7 @@ import type { LikeC4Model } from '@likec4/core/model'
 import type { UnknownParsed } from '@likec4/core/types'
 import { ast } from '../ast'
 import type { ViewLocateResult } from '../model'
+import type { LikeC4Services } from '../module'
 import {
   type AnchoredEdit,
   type ModelChangePlan,
@@ -13,14 +14,16 @@ import {
   quote,
 } from './_anchors'
 import { fqnRefText } from './_lookup'
+import { findStep, topLevelStatement } from './_steps'
 import { ModelChangeError } from './ModelChangeError'
 
 /**
  * Plans `source -> target` after the last top-level step of a dynamic view
- * (before the first rule when there are no steps).
+ * (before the first rule when there are no steps), or before the top-level step at `beforeStep`.
  * No model relation is created.
  */
 export function addDynamicStep(
+  services: LikeC4Services,
   { lookup, model, change }: {
     lookup: ViewLocateResult
     model: LikeC4Model<UnknownParsed>
@@ -43,10 +46,15 @@ export function addDynamicStep(
   const line = `${fqnRefText(change.source)} -> ${fqnRefText(change.target)}`
     + (change.title ? ' ' + quote(change.title) : '')
 
+  const before = change.beforeStep && findStep(services, model, doc, viewAst, lookup.view.id, change.beforeStep)
+  const nextStep = before ? topLevelStatement(viewAst, before)?.$cstNode : undefined
   const lastStep = body.steps.at(-1)?.$cstNode
   const firstRule = body.rules[0]?.$cstNode
   let anchored: AnchoredEdit
   switch (true) {
+    case !!nextStep:
+      anchored = insertBeforeNode(doc.textDocument, nextStep, [line])
+      break
     case !!lastStep:
       anchored = insertAfterNode(doc.textDocument, lastStep, [line])
       break
