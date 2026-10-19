@@ -28,8 +28,10 @@ import {
   excludeChangeOf,
   Ghosts,
   innermostNode,
+  relationshipKinds,
   resolveConnection,
   useCanvasDrop,
+  useConnectPrompt,
   useTitleEditing,
 } from '../editor-ui'
 import {
@@ -214,6 +216,10 @@ export function LikeC4DiagramXYFlow({
     () => itemsCreatable && likec4model ? canvasPalette(viewType, likec4model) : null,
     [itemsCreatable, likec4model, viewType],
   )
+  const relationKinds = useMemo(() => likec4model ? relationshipKinds(likec4model) : [], [likec4model])
+  const connectPrompt = useConnectPrompt(relationKinds, change => {
+    diagram.editorActor().send({ type: 'change.view', change })
+  })
   const titleEditing = useTitleEditing(change => {
     diagram.editorActor().send({ type: 'change.view', change })
   })
@@ -351,21 +357,23 @@ export function LikeC4DiagramXYFlow({
         onDrop: canvasDrop.onDrop,
       }}
       onConnectEnd={useCallbackRef((event, connection) => {
-        if (!nodesConnectable || !connection.fromNode) {
+        const pointer = 'changedTouches' in event ? event.changedTouches[0] : event
+        if (!nodesConnectable || !connection.fromNode || !pointer) {
           return
         }
+        const released = xyflow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY })
         // Released outside a handle: take the innermost node under the pointer
-        const pointer = 'changedTouches' in event ? event.changedTouches[0] : event
-        const toNode = connection.toNode ?? (pointer
-          ? innermostNode(xyflow.getIntersectingNodes({
-            ...xyflow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY }),
-            width: 1,
-            height: 1,
-          }))
-          : null)
+        const toNode = connection.toNode
+          ?? innermostNode(xyflow.getIntersectingNodes({ ...released, width: 1, height: 1 }))
         const change = resolveConnection(connection.fromNode, toNode, viewType)
-        if (change) {
-          diagram.editorActor().send({ type: 'change.view', change })
+        switch (true) {
+          case change?.op === 'add-relation':
+            // Ask for title, kind and technology first
+            connectPrompt.open(change, released)
+            break
+          case !!change:
+            diagram.editorActor().send({ type: 'change.view', change })
+            break
         }
       })}
       onPaneClick={useCallbackRef((e) => {
@@ -443,6 +451,7 @@ export function LikeC4DiagramXYFlow({
       )}
       {palette && canvasDrop.popover}
       {titlesEditable && titleEditing.editor}
+      {nodesConnectable && connectPrompt.prompt}
       {children}
     </BaseXYFlow>
   )

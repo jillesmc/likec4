@@ -1,5 +1,5 @@
 import type { LikeC4Model } from '@likec4/core/model'
-import type { aux, DeploymentKind, ElementKind } from '@likec4/core/types'
+import type { aux, DeploymentKind, ElementKind, RelationshipKind } from '@likec4/core/types'
 import { keys } from 'remeda'
 import type { PaletteItem } from './ElementPalette'
 import { type CanvasDropConfig, INSTANCE_ITEM } from './useCanvasDrop'
@@ -9,6 +9,14 @@ export type CanvasPalette = {
   emptyMessage: string
   items: PaletteItem[]
   config: CanvasDropConfig
+}
+
+/**
+ * Relationship kinds declared in the specification
+ */
+export function relationshipKinds<A extends aux.Any>(model: LikeC4Model<A>): RelationshipKind[] {
+  // keys of specification.relationships are relationship kinds (Object.keys loses the tag)
+  return keys(model.specification.relationships).map(kind => kind as RelationshipKind)
 }
 
 /**
