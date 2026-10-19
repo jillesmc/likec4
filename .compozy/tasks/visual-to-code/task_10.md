@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 10: Connect popover with relation kind and technology"
 type: feature
 complexity: medium
@@ -33,11 +33,11 @@ optional. Owner decision Q4, 2026-10-18.
 
 ## Subtasks
 
-- [ ] 10.1 Core: `kind?`, `technology?` on `AddRelation`.
-- [ ] 10.2 Server: `addRelation.ts` connector and body; `unknown-kind` precondition.
-- [ ] 10.3 Diagram: connect popover (reusing the `TitlePrompt` form from task 9) wired in the
+- [x] 10.1 Core: `kind?`, `technology?` on `AddRelation`.
+- [x] 10.2 Server: `addRelation.ts` connector and body; `unknown-kind` precondition.
+- [x] 10.3 Diagram: connect popover (reusing the `TitlePrompt` form from task 9) wired in the
   connect flow.
-- [ ] 10.4 E2E: E2E-007.
+- [x] 10.4 E2E: E2E-007.
 
 ## Implementation Details
 
@@ -50,6 +50,23 @@ optional. Owner decision Q4, 2026-10-18.
 
 ## Tests
 
-- [ ] UT-210, UT-211, UT-212 — DSL written, `unknown-kind`
-- [ ] UT-213, UT-214 — popover fields, empty Enter, Esc
-- [ ] E2E-007 — kind and technology written
+- [x] UT-210, UT-211, UT-212 — DSL written, `unknown-kind`
+- [x] UT-213, UT-214 — popover fields, empty Enter, Esc
+- [x] E2E-007 — kind and technology written
+
+## Completion Notes (2026-10-18)
+
+- Core: `AddRelation.kind?` / `technology?`.
+- Server (`addRelation.ts`): `-[kind]-> target 'title'`, technology as a `technology '…'` body
+  property (indentation from the file); undeclared kinds → `unknown-kind`. Same for the fallback in
+  the view's `model {}` (source in another project).
+- Diagram: `editor-ui/ConnectPrompt.tsx` (`ConnectPrompt`, `connectChange`, `useConnectPrompt`) opens
+  at the release point after a connect in element views; kinds come from
+  `relationshipKinds(model)` (`palette.ts`). Enter with empty fields keeps the plain `-> target`, Esc
+  writes nothing. Dynamic views still add the step directly; task 12 adds title and position there,
+  reusing the same component.
+- E2E fixture declares `relationship async`; element-view connect scenarios now press Enter in the
+  prompt.
+- Verification: language-server 918 passed; diagram 215 passed; `pnpm typecheck` 26/26; dev-server
+  E2E 15 passed (new E2E-007); static-build E2E 2 passed.
+
