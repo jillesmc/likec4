@@ -1,4 +1,5 @@
-import type { DeploymentFqn, Fqn, ViewChange } from '@likec4/core/types'
+import type { XYPoint } from '@likec4/core/geometry'
+import type { RelationId, ViewChange } from '@likec4/core/types'
 import { ViewportPortal } from '@xyflow/react'
 import { type ReactNode, useState } from 'react'
 import { useCallbackRef } from '../hooks/useCallbackRef'
@@ -7,16 +8,24 @@ import { type ConnectableNode, titleTargetOf } from './connect'
 import { TitlePrompt } from './TitlePrompt'
 
 type Editing = {
-  target: Fqn | DeploymentFqn
+  target: ViewChange.ChangeTitle['target']
   title: string
-  center: { x: number; y: number }
+  center: XYPoint
 }
 
 /**
- * Double-click on a node edits its title in place
+ * The relation whose title can be edited from an edge: only an edge of a single relation
+ */
+export function relationTitleTargetOf(relations: readonly RelationId[]): RelationId | null {
+  return relations.length === 1 ? relations[0]! : null
+}
+
+/**
+ * Double-click on a node (or a relation edge) edits its title in place
  */
 export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => void): {
   onNodeDoubleClick: (event: { stopPropagation: () => void }, node: ConnectableNode & { id: string }) => void
+  editRelationTitle: (relation: RelationId, title: string, at: XYPoint) => void
   editor: ReactNode
 } {
   const xyflow = useXYFlow()
@@ -43,6 +52,10 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
     },
   )
 
+  const editRelationTitle = useCallbackRef((relation: RelationId, title: string, at: XYPoint) => {
+    setEditing({ target: { relation }, title, center: at })
+  })
+
   const editor = editing && (
     <ViewportPortal>
       <div
@@ -55,6 +68,8 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
           label="Title"
           initialTitle={editing.title}
           confirmLabel="Save"
+          // an empty title removes the title of a relation
+          allowEmpty={typeof editing.target === 'object'}
           onCancel={() => setEditing(null)}
           onConfirm={title => {
             setEditing(null)
@@ -67,5 +82,5 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
     </ViewportPortal>
   )
 
-  return { onNodeDoubleClick, editor }
+  return { onNodeDoubleClick, editRelationTitle, editor }
 }

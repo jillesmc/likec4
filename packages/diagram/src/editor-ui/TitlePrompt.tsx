@@ -9,11 +9,12 @@ export function titleKeyAction(
   title: string,
   options?: readonly string[],
   identifierValid = true,
+  allowEmpty = false,
 ): 'confirm' | 'cancel' | null {
   switch (true) {
     case key === 'Escape':
       return 'cancel'
-    case key === 'Enter' && identifierValid && isValidValue(title, options):
+    case key === 'Enter' && identifierValid && isValidValue(title, options, allowEmpty):
       return 'confirm'
     default:
       return null
@@ -23,9 +24,9 @@ export function titleKeyAction(
 /**
  * A non-empty value, one of the options when they are given
  */
-function isValidValue(value: string, options?: readonly string[]): boolean {
+function isValidValue(value: string, options?: readonly string[], allowEmpty = false): boolean {
   const trimmed = value.trim()
-  return trimmed.length > 0 && (!options || options.includes(trimmed))
+  return (allowEmpty || trimmed.length > 0) && (!options || options.includes(trimmed))
 }
 
 let promptSeq = 0
@@ -51,26 +52,32 @@ export type IdentifierField = {
  * With `identifier`, also asks for the identifier, prefilled with the suggestion:
  * Enter accepts it, typing in the field (its text is selected on focus) replaces it.
  */
-export function TitlePrompt({ label, initialTitle, confirmLabel, options, identifier, onConfirm, onCancel }: {
-  label: string
-  initialTitle: string
-  confirmLabel: string
-  options?: readonly string[]
-  identifier?: IdentifierField
-  onConfirm: (title: string, name?: string) => void
-  onCancel: () => void
-}) {
+export function TitlePrompt(
+  { label, initialTitle, confirmLabel, options, identifier, allowEmpty = false, onConfirm, onCancel }: {
+    label: string
+    initialTitle: string
+    confirmLabel: string
+    options?: readonly string[]
+    identifier?: IdentifierField
+    /**
+     * An empty value is accepted (e.g. removes the title of a relation)
+     */
+    allowEmpty?: boolean
+    onConfirm: (title: string, name?: string) => void
+    onCancel: () => void
+  },
+) {
   const [title, setTitle] = useState(initialTitle)
   // Identifier typed by the user, empty while following the suggestion
   const [typedName, setTypedName] = useState('')
   const [listId] = useState(() => `likec4-title-prompt-options-${++promptSeq}`)
   const name = identifier ? shownIdentifier(typedName, identifier.suggest(title.trim())) : undefined
   const nameError = identifier && name !== undefined ? identifierError(name, identifier.taken) : null
-  const isValid = isValidValue(title, options) && nameError === null
+  const isValid = isValidValue(title, options, allowEmpty) && nameError === null
   const confirm = () => onConfirm(title.trim(), name)
   const onKeyDown = (e: KeyboardEvent) => {
     e.stopPropagation()
-    const action = titleKeyAction(e.key, title, options, nameError === null)
+    const action = titleKeyAction(e.key, title, options, nameError === null, allowEmpty)
     if (action === 'confirm') confirm()
     if (action === 'cancel') onCancel()
   }
@@ -100,7 +107,7 @@ export function TitlePrompt({ label, initialTitle, confirmLabel, options, identi
           width: 180,
           fontSize: 13,
           padding: '2px 6px',
-          outlineColor: isValidValue(title, options) ? undefined : 'var(--mantine-color-red-6)',
+          outlineColor: isValidValue(title, options, allowEmpty) ? undefined : 'var(--mantine-color-red-6)',
         }}
       />
       {identifier && (

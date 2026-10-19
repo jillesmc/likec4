@@ -29,6 +29,7 @@ import {
   Ghosts,
   innermostNode,
   relationshipKinds,
+  relationTitleTargetOf,
   resolveConnection,
   useCanvasDrop,
   useConnectPrompt,
@@ -334,6 +335,15 @@ export function LikeC4DiagramXYFlow({
           return
         }
         e.stopPropagation()
+        // Edit the title of the relation (element views, edges of a single relation)
+        const relation = titlesEditable && viewType === 'element'
+          ? relationTitleTargetOf(diagram.findDiagramEdge(edge.id as EdgeId)?.relations ?? [])
+          : null
+        if (relation) {
+          const title = typeof edge.data.label === 'string' ? edge.data.label : ''
+          titleEditing.editRelationTitle(relation, title, xyflow.screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+          return
+        }
         diagram.send({ type: 'xyflow.edgeDoubleClick', edge })
       })}
       deleteKeyCode={DELETE_KEYS}
