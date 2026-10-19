@@ -1,6 +1,7 @@
 specification {
   element actor
   element system
+  relationship async
 }
 model {
   // people

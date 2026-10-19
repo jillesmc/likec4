@@ -28,6 +28,8 @@ test('E2E-001: connecting two elements writes a relation to the sources', async 
   // near the top-left corner, away from the node center
   await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
   await page.mouse.up()
+  // the relation details are asked first, Enter keeps them empty
+  await page.getByLabel('Relation title').press('Enter')
 
   // Ghost is shown until the view is updated, then the real edge
   await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
@@ -213,11 +215,43 @@ test('US-001 EC-11: connecting in a view with manual layout updates the snapshot
   await page.mouse.down()
   await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
   await page.mouse.up()
+  // the relation details are asked first, Enter keeps them empty
+  await page.getByLabel('Relation title').press('Enter')
 
   await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`-> cloud`)
   await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).not.toContain('edges: []')
   await expect(page.locator('.react-flow__edge')).toHaveCount(1)
   await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+})
+
+test('E2E-007: connecting asks for title, kind and technology', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const from = (await customer.locator('.likec4-connect-handle').boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
+  await page.mouse.up()
+
+  await page.getByLabel('Relation title').fill('uses')
+  await page.getByLabel('Relation kind').selectOption('async')
+  await page.getByLabel('Relation technology').fill('HTTPS')
+  await page.getByLabel('Relation technology').press('Enter')
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(
+    [
+      `    -[async]-> cloud 'uses' {`,
+      `      technology 'HTTPS'`,
+      `    }`,
+    ].join('\n'),
+  )
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
 })
 
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
@@ -236,6 +270,8 @@ test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page
   await page.mouse.down()
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
   await page.mouse.up()
+  // the relation details are asked first, Enter keeps them empty
+  await page.getByLabel('Relation title').press('Enter')
   await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
   const changed = await readServed()
   expect(changed).toContain('-> cloud')
@@ -347,6 +383,8 @@ test('review 008: a relation without label can be deleted from the model', async
   await page.mouse.down()
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
   await page.mouse.up()
+  // the relation details are asked first, Enter keeps them empty
+  await page.getByLabel('Relation title').press('Enter')
   const edge = page.locator('.react-flow__edge')
   await expect(edge).toHaveCount(1, { timeout: 10_000 })
 
