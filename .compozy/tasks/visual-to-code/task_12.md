@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: "Task 12: Dynamic views: step position and step removal"
 type: feature
 complexity: high
@@ -34,13 +34,13 @@ edge removes that step. Owner decisions Q3 and Q5, 2026-10-18.
 
 ## Subtasks
 
-- [ ] 12.1 Core: `beforeStep?` on `AddDynamicStep`; `ViewChange.RemoveDynamicStep`.
-- [ ] 12.2 Server: `beforeStep` in `addDynamicStep.ts` (`insertBeforeNode`);
+- [x] 12.1 Core: `beforeStep?` on `AddDynamicStep`; `ViewChange.RemoveDynamicStep`.
+- [x] 12.2 Server: `beforeStep` in `addDynamicStep.ts` (`insertBeforeNode`);
   `removeDynamicStep.ts` (step path → AST via `locateDynamicViewStep` or the compute numbering,
   `removeNode`).
-- [ ] 12.3 Diagram: position select in the connect popover; `Del` handling for step edges in
+- [x] 12.3 Diagram: position select in the connect popover; `Del` handling for step edges in
   `exclude.ts` / `onBeforeDelete`.
-- [ ] 12.4 E2E: E2E-008 on the `flow` view of `e2e/fixtures/visual-to-code/dynamic.c4`.
+- [x] 12.4 E2E: E2E-008 on the `flow` view of `e2e/fixtures/visual-to-code/dynamic.c4`.
 
 ## Implementation Details
 
@@ -55,9 +55,34 @@ edge removes that step. Owner decisions Q3 and Q5, 2026-10-18.
 
 ## Tests
 
-- [ ] UT-230, UT-231 — insert before / out of range
-- [ ] UT-232, UT-233 — position field
-- [ ] UT-240, UT-241, UT-242 — removal at top level and in blocks
-- [ ] UT-243, UT-244 — chain refused, unknown path
-- [ ] UT-245 — `Del` on step edge vs node
-- [ ] E2E-008 — step removed from `dynamic.c4`
+- [x] UT-230, UT-231 — insert before / out of range
+- [x] UT-232, UT-233 — position field
+- [x] UT-240, UT-241, UT-242 — removal at top level and in blocks
+- [x] UT-243, UT-244 — chain refused, unknown path
+- [x] UT-245 — `Del` on step edge vs node
+- [x] E2E-008 — step removed from `dynamic.c4`
+
+## Completion Notes (2026-10-18)
+
+- Contract change (spec, DX, stories and tests updated): `beforeStep` is the id of a step
+  (`StepPath`), not an index. A chain `a -> b -> c` is one statement with several steps, so a
+  statement index would not match the step numbers the user sees. The server inserts before the
+  top-level statement that contains the step; unknown ids append at the end.
+- Server: `_steps.ts` finds a step by id in the view computed from the current sources (its
+  `astPath`), shared by `addDynamicStep.ts` (`beforeStep`) and the new `removeDynamicStep.ts`
+  (single steps at any depth, chain steps refused with `unsupported-in-view`, empty blocks kept).
+- Diagram:
+  - `ConnectPrompt` handles both modes: relation (title, kind, technology) and step (title,
+    position). `steps.ts`: `stepPositions` (one entry per top-level step, blocks count as one) and
+    `removeStepChangesOf` (removed last first, so the ids of the next ones stay valid).
+  - `Del` on step edges in dynamic views sends `remove-dynamic-step`; nodes are still not deletable
+    there. Root cause found with the E2E: dynamic view edges were created with `deletable: false`
+    (`xyflow-diagram/diagram-view.ts`), so xyflow dropped them before `onBeforeDelete`; edges are now
+    deletable in every view.
+  - `remove-dynamic-step` is a model change (canvas undo) and refreshes a manual layout, like
+    `exclude-from-view`.
+- E2E: US-009 confirms the prompt; new `US-015 + E2E-008` scenario (insert before step 1, remove a
+  step with `Del`), waiting for the relayout between gestures.
+- Verification: language-server 930 passed; diagram 221 passed; `pnpm typecheck` 26/26; dev-server
+  E2E 17 passed (twice); static-build E2E 2 passed.
+
