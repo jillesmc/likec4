@@ -98,7 +98,7 @@ export function diagramToXY(opts: {
   const viewLayoutDir = view.autoLayout?.direction ?? 'TB'
   const isDynamic = view._type === 'dynamic'
 
-  //
+  // Nodes of dynamic views can't be deleted (no `exclude` there)
   const deletable = view._type !== 'dynamic'
 
   type TraverseItem = {
@@ -325,7 +325,8 @@ export function diagramToXY(opts: {
       ariaLabel: edgeAriaLabel(edge, nodeById(source), nodeById(target)),
       zIndex: ZIndexes.Edge,
       hidden: !visiblePredicate(edge),
-      deletable,
+      // Deleting an edge excludes it from the view, or removes the step in dynamic views
+      deletable: true,
       data: {
         id: edge.id,
         label: edge.label,
