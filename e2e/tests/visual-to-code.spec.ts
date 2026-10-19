@@ -58,6 +58,8 @@ test('E2E-002: dropping an element kind in a view with manual layout keeps it at
   await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 10 })
   await page.mouse.up()
   await expect.poll(() => hasManualLayout('index'), { timeout: 10_000 }).toBe(true)
+  // US-017: the palette tells that new elements stay where they are dropped
+  await expect(page.locator('[data-likec4-palette-notice]')).toContainText('This view has a manual layout')
 
   // Drop "system" from the palette on empty canvas
   const pane = page.locator('.react-flow__pane')
@@ -71,6 +73,8 @@ test('E2E-002: dropping an element kind in a view with manual layout keeps it at
   await input.press('Enter')
 
   await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`  billing = system 'Billing'`)
+  // US-017: and the first drop shows it as a toast
+  await expect(page.locator('[data-likec4-manual-layout-notice]')).toBeVisible()
 
   const billing = page.locator('.react-flow__node[data-id="billing"]')
   await expect(billing).toBeVisible({ timeout: 10_000 })
