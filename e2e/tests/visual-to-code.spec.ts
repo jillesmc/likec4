@@ -254,12 +254,45 @@ test('E2E-007: connecting asks for title, kind and technology', async ({ page })
   await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
 })
 
+test('US-014: double-clicking a relation label edits its title', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const from = (await customer.locator('.likec4-connect-handle').boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
+  await page.mouse.up()
+  await page.getByLabel('Relation title').fill('uses')
+  await page.getByLabel('Relation title').press('Enter')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`-> cloud 'uses'`)
+
+  const label = page.locator('.likec4-edge-label-container').getByText('uses', { exact: true })
+  await expect(label).toBeVisible({ timeout: 10_000 })
+  await label.dblclick()
+  const input = page.getByLabel('Title')
+  await expect(input).toHaveValue('uses')
+  await input.fill('uses daily')
+  await input.press('Enter')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`-> cloud 'uses daily'`)
+  // ends once the view is updated, so the next test's fixture restore is not mixed with this write
+  await expect(page.locator('.likec4-edge-label-container').getByText('uses daily', { exact: true }))
+    .toBeVisible({ timeout: 10_000 })
+})
+
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
   const fixture = await readServed()
   await page.goto('/view/index/')
   const customer = page.locator('.react-flow__node[data-id="customer"]')
   const cloud = page.locator('.react-flow__node[data-id="cloud"]')
   await expect(customer).toBeVisible()
+  // the server has reloaded the restored fixture (relations of previous tests are gone)
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0, { timeout: 10_000 })
   await page.locator('button:has(svg.tabler-icon-lock)').click()
 
   await customer.hover()
