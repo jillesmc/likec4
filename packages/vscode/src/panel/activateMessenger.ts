@@ -153,7 +153,7 @@ export function activateMessenger() {
       // Save every modified document, not only the revealed one
       const toSave = new Map([location.uri, ...result.modifiedUris].map(uri => [uri.toString(), uri]))
       for (const uri of toSave.values()) {
-        await vscode.workspace.save(uri)
+        await saveDocument(uri)
       }
       return {
         success: true,
@@ -182,7 +182,7 @@ export function activateMessenger() {
         return result
       }
       for (const uri of result.modifiedUris) {
-        await vscode.workspace.save(uri)
+        await saveDocument(uri)
       }
       return { success: true }
     } catch (e) {
@@ -250,4 +250,16 @@ export function activateMessenger() {
   })
 
   return messenger
+}
+
+/**
+ * Saves a document modified by a canvas change.
+ * `workspace.save(uri)` saves only documents shown in an editor, while a change may also modify
+ * documents in the background (e.g. the `include` in the file of the view).
+ */
+async function saveDocument(uri: vscode.Uri): Promise<void> {
+  const document = await vscode.workspace.openTextDocument(uri)
+  if (document.isDirty) {
+    await document.save()
+  }
 }
