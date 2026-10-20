@@ -63,6 +63,8 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
           position: 'absolute',
           transform: `translate(${editing.center.x}px, ${editing.center.y}px) translate(-50%, -50%)`,
           zIndex: 1000,
+          // the viewport portal of xyflow does not receive pointer events
+          pointerEvents: 'all',
         }}>
         <TitlePrompt
           label="Title"

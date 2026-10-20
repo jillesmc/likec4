@@ -152,7 +152,15 @@ export function useCanvasDrop(
 
   const popover = drop && (
     <ViewportPortal>
-      <div style={{ position: 'absolute', transform: `translate(${drop.position.x}px, ${drop.position.y}px)` }}>
+      <div
+        style={{
+          position: 'absolute',
+          transform: `translate(${drop.position.x}px, ${drop.position.y}px)`,
+          // above the nodes: the prompt usually opens over the target node
+          zIndex: 1000,
+          // the viewport portal of xyflow does not receive pointer events
+          pointerEvents: 'all',
+        }}>
         {drop.op === 'add-instance'
           ? (
             <TitlePrompt

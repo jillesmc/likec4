@@ -154,7 +154,15 @@ export function useConnectPrompt(
   const [pending, setPending] = useState<Pending | null>(null)
   const prompt = pending && (
     <ViewportPortal>
-      <div style={{ position: 'absolute', transform: `translate(${pending.position.x}px, ${pending.position.y}px)` }}>
+      <div
+        style={{
+          position: 'absolute',
+          transform: `translate(${pending.position.x}px, ${pending.position.y}px)`,
+          // above the nodes: the prompt usually opens over the target node
+          zIndex: 1000,
+          // the viewport portal of xyflow does not receive pointer events
+          pointerEvents: 'all',
+        }}>
         <ConnectPrompt
           kinds={kinds}
           positions={'positions' in pending ? pending.positions : undefined}
