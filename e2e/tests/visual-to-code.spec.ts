@@ -243,10 +243,13 @@ test('E2E-007: connecting asks for title, kind and technology', async ({ page })
   await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
   await page.mouse.up()
 
+  // click (unlike fill) fails when something covers the prompt, e.g. the target node
+  await page.getByLabel('Relation title').click()
   await page.getByLabel('Relation title').fill('uses')
   await page.getByLabel('Relation kind').selectOption('async')
   await page.getByLabel('Relation technology').fill('HTTPS')
-  await page.getByLabel('Relation technology').press('Enter')
+  // the prompt buttons are clickable
+  await page.getByRole('button', { name: 'Connect', exact: true }).click()
 
   await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(
     [
@@ -412,6 +415,7 @@ test('US-015 + E2E-008: a step inserted at a chosen position, a step removed wit
 
   // US-015: before the first step
   await connect(web, app)
+  await page.getByLabel('Step title').click()
   await page.getByLabel('Step title').fill('back')
   await page.getByLabel('Step position').selectOption({ label: 'Before step 1: App → Web' })
   await page.getByLabel('Step title').press('Enter')
