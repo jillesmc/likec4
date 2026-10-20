@@ -242,7 +242,8 @@ const process = machine.createStateConfig({
             '500ms': {
               actions: [
                 clearQueue(),
-                assign({ redo: null }),
+                // a refresh after undo / redo of a model change is not a new change
+                assign(({ context }) => ({ redo: context.keepRedo ? context.redo : null, keepRedo: false })),
                 scheduleSync(),
               ],
               ...to.idle,
@@ -366,7 +367,7 @@ const process = machine.createStateConfig({
         }),
         onDone: {
           // The manual layout is refreshed once the view is synced (items may appear or disappear)
-          actions: assign({ refreshManualLayout: true }),
+          actions: assign({ refreshManualLayout: true, keepRedo: true }),
           target: 'waitViewSynced',
         },
         onError: {

@@ -291,6 +291,7 @@ export const settleGhosts = () =>
     // New relations and steps are edges of the view, the manual layout gets them too
     const edgesAdded = settled.some(g => g.change.op === 'add-relation' || g.change.op === 'add-dynamic-step')
     if (placements.length === 0 && !edgesAdded && !context.refreshManualLayout) {
+      enqueue.assign({ keepRedo: false })
       return
     }
     enqueue.assign({ refreshManualLayout: false })
@@ -299,6 +300,8 @@ export const settleGhosts = () =>
     if (diagram?.getSnapshot().context.view._layout === 'manual') {
       enqueue.assign({ pendingPlacements: placements })
       enqueue.raise({ type: 'change.latest-to-manual' })
+    } else {
+      enqueue.assign({ keepRedo: false })
     }
   })
 

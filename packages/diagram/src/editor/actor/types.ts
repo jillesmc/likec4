@@ -181,6 +181,11 @@ export interface EditorActorContext {
    * Items were removed from the view, refresh the manual layout once the view is synced
    */
   refreshManualLayout: boolean
+  /**
+   * The manual layout refresh follows an undo / redo of a model change,
+   * so the redo history is kept
+   */
+  keepRedo: boolean
 
   /**
    * Error of the last rejected change, shown to the user until dismissed

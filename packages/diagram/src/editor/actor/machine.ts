@@ -20,6 +20,7 @@ const _editorActorLogic = machine.createMachine({
     ghosts: [],
     pendingPlacements: [],
     refreshManualLayout: false,
+    keepRedo: false,
     lastError: null,
   }),
   type: 'parallel',
