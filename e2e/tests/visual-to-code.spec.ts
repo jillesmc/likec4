@@ -467,6 +467,12 @@ test('E2E-009 (review 005): undo of an element dropped in a manual layout view l
   await expect.poll(() => readServed(), { timeout: 10_000 }).not.toContain(`billing = system`)
   await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).not.toContain(`id: 'billing'`)
   await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+
+  // the snapshot refresh after the undo keeps the redo history
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`billing = system 'Billing'`)
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).toContain(`id: 'billing'`)
+  await expect(page.locator('.react-flow__node[data-id="billing"]')).toBeVisible({ timeout: 10_000 })
 })
 
 test('review 008: a relation without label can be deleted from the model', async ({ page }) => {
