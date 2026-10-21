@@ -140,6 +140,7 @@ export const useRpc = defineService(() => {
         modifiedUris: (res.modifiedUris ?? []).map(uri => client.protocol2CodeConverter.asUri(uri)),
         historyId: res.historyId,
         created: res.created,
+        viewId: res.viewId,
         success: res.success,
       }
     },

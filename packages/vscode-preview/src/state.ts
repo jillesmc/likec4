@@ -252,6 +252,7 @@ const editorPort: LikeC4EditorCallbacks = {
     return {
       historyId: result.historyId,
       created: result.created,
+      viewId: result.viewId,
     }
   },
   // Canvas undo / redo of model changes, the language server keeps the history (ADR-004)

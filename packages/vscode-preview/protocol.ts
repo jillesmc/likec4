@@ -108,6 +108,10 @@ export const ViewChangeReq = { method: 'webview:change' } as RequestType<
      * Fqn of the created item, if any
      */
     created?: string | undefined
+    /**
+     * New id of the view, when the change renamed it
+     */
+    viewId?: ViewId | undefined
   }
   | { success: false; error: string }
 >

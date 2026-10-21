@@ -159,6 +159,7 @@ export function activateMessenger() {
         success: true,
         historyId: result.historyId,
         created: result.created,
+        viewId: result.viewId,
       }
     } catch (e) {
       // direct output to bypass telemetry error
