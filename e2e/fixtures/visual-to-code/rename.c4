@@ -1,0 +1,6 @@
+// references from another file, for the rename journeys
+views {
+  view customerOnly {
+    include customer
+  }
+}

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { type Locator, type Page, expect, test } from '@playwright/test'
 import { hasManualLayout, readServed, restoreFixture, writeServed } from '../helpers/visual-to-code'
 
 test.beforeEach(async () => {
@@ -431,6 +431,82 @@ test('review 002-003: an open prompt is closed when another view is shown', asyn
   })
   await expect(page.locator('.react-flow__node[data-id="customer.app"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-likec4-connect-prompt]')).toHaveCount(0)
+})
+
+/**
+ * Moves a node to save a manual layout snapshot of the view
+ */
+async function saveManualLayout(page: Page, node: Locator, viewId: string) {
+  const box = (await node.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 - 150, box.y + box.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect.poll(() => hasManualLayout(viewId), { timeout: 10_000 }).toBe(true)
+}
+
+test('E2E-001 (rename): F2 renames the element everywhere, the node keeps its place', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+  await saveManualLayout(page, page.locator('.react-flow__node[data-id="cloud"]'), 'index')
+  const before = (await customer.boundingBox())!
+
+  await customer.click()
+  await page.keyboard.press('F2')
+  const input = page.getByRole('textbox', { name: 'Identifier' })
+  await expect(input).toHaveValue('customer')
+  // a taken name is refused before sending
+  await input.fill('cloud')
+  await expect(page.getByRole('button', { name: 'Rename', exact: true })).toBeDisabled()
+  await input.fill('client')
+  await input.press('Enter')
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`client = actor 'Customer'`)
+  expect(await readServed('rename.c4')).toContain('include client')
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).toContain(`id: 'client'`)
+  const client = page.locator('.react-flow__node[data-id="client"]')
+  await expect(client).toBeVisible({ timeout: 10_000 })
+  const after = (await client.boundingBox())!
+  expect(Math.abs(after.x - before.x)).toBeLessThan(2)
+  expect(Math.abs(after.y - before.y)).toBeLessThan(2)
+  await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+})
+
+test('E2E-002 (rename): Ctrl+Z / Ctrl+Shift+Z undo and redo the rename with the layout', async ({ page }) => {
+  const fixture = { model: await readServed(), rename: await readServed('rename.c4') }
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+  await saveManualLayout(page, page.locator('.react-flow__node[data-id="cloud"]'), 'index')
+
+  // the toolbar button opens the same prompt
+  await customer.click()
+  // the toolbar of `customer` (the one of the node moved before may still be fading out)
+  const toolbar = page.locator('.react-flow__node-toolbar').filter({ has: page.getByText('customer', { exact: true }) })
+  await toolbar.getByRole('button', { name: 'Rename identifier' }).click()
+  await page.getByRole('textbox', { name: 'Identifier' }).fill('client')
+  await page.getByRole('textbox', { name: 'Identifier' }).press('Enter')
+  const client = page.locator('.react-flow__node[data-id="client"]')
+  await expect(client).toBeVisible({ timeout: 10_000 })
+
+  await page.locator('.react-flow__pane').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toBe(fixture.model)
+  expect(await readServed('rename.c4')).toBe(fixture.rename)
+  await expect.poll(() => readServed('.likec4/index.likec4.snap'), { timeout: 10_000 }).toContain(`id: 'customer'`)
+  await expect(customer).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
+  // the server restores the snapshot at once; the editor then refreshes the manual layout and
+  // ignores keys for 500 ms (sync window), wait for it before redoing
+  await page.waitForTimeout(1500)
+
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`client = actor 'Customer'`)
+  await expect(client).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
 })
 
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
