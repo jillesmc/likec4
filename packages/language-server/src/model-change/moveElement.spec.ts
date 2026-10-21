@@ -231,6 +231,90 @@ describe('move-element', () => {
     expect(ws3.read('views.c4')).not.toContain('include customer.api')
   })
 
+  it('review 001-001: children declared in an extend elsewhere move along, their references follow', async () => {
+    const ws = await memfsWorkspace({
+      'model.c4': `
+        specification { element system }
+        model {
+          cloud = system {
+            db = system
+          }
+          billing = system
+          customer = system
+        }
+        views {
+          view index {
+            include *
+          }
+        }
+      `,
+      'extra.c4': `
+        model {
+          extend cloud.db {
+            table = system
+          }
+          customer -> cloud.db.table
+        }
+      `,
+    })
+    expect(await ws.apply(move('cloud.db', 'billing'))).toMatchObject({ success: true })
+    expect(ws.read('extra.c4')).toMatchInlineSnapshot(`
+      "model {
+        extend billing.db {
+          table = system
+        }
+        customer -> billing.db.table
+      }
+      "
+    `)
+  })
+
+  it('review 001-003: manual layouts follow the moved element and its descendants', async () => {
+    const ws = await memfsWorkspace({
+      'model.c4': `
+        specification { element system }
+        model {
+          cloud = system {
+            db = system {
+              table = system
+            }
+          }
+          billing = system
+        }
+        views {
+          view index {
+            include *, cloud.db, cloud.db.table
+          }
+          view dbOnly {
+            include cloud.db, cloud.db.table
+          }
+        }
+      `,
+    }, { manualLayouts: true })
+    const views = ws.services.likec4.Views
+    for (const diagram of await views.diagrams()) {
+      await ws.apply({
+        viewId: diagram.id,
+        change: { op: 'save-view-snapshot', layout: { ...diagram, _layout: 'manual' } },
+      })
+    }
+    const drifts = async (viewId: string) =>
+      (await views.layoutView({ viewId: viewId as ViewId, projectId: 'default' as never, layoutType: 'manual' }))
+        ?.diagram.drifts
+
+    expect(await ws.apply(move('cloud.db', 'billing'))).toMatchObject({ success: true })
+    for (const viewId of ['index', 'dbOnly']) {
+      const snapshot = ws.snapshot(viewId) ?? ''
+      expect(snapshot).toContain(`id: 'billing.db'`)
+      expect(snapshot).toContain(`id: 'billing.db.table'`)
+      expect(snapshot).not.toContain(`'cloud.db`)
+    }
+    // the new parent is not shown: the nodes keep their place, no drift
+    expect(await drifts('dbOnly')).toBeUndefined()
+    // the new parent is shown: the node changes parent in that view, drift is reported (rule 9)
+    expect(await drifts('index')).toEqual(expect.arrayContaining(['nodes-drift']))
+  })
+
   it('UT-028: refuses a name taken in the new parent', async () => {
     const ws = await memfsWorkspace({
       'model.c4': `
