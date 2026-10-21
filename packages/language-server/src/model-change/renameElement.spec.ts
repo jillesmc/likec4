@@ -1,4 +1,4 @@
-import type { Fqn, ViewId } from '@likec4/core'
+import type { DeploymentFqn, Fqn, ViewId } from '@likec4/core'
 import { vol } from 'memfs'
 import { describe, expect, it, vi } from 'vitest'
 import { URI } from 'vscode-uri'
@@ -35,6 +35,11 @@ const views = `
     }
   }
 `
+
+/**
+ * File content as written by the memfs workspace
+ */
+const stripped = (content: string) => content.trim().replace(/^ {2}/gm, '') + '\n'
 
 function rename(element: string, name: string) {
   return {
@@ -84,7 +89,7 @@ describe('rename-element', () => {
       }
       "
     `)
-    expect(ws.read('views.c4')).toBe(views.trim().replace(/^ {2}/gm, '') + '\n')
+    expect(ws.read('views.c4')).toBe(stripped(views))
   })
 
   it('UT-003: renames middle and last segments of chains, and unique-descendant shortcuts', async () => {
@@ -333,6 +338,99 @@ describe('rename-element', () => {
       success: false,
       code: 'not-found',
       error: 'cloud.nope not found',
+    })
+  })
+})
+
+describe('rename-element of deployment items', () => {
+  const deployment = `
+    deployment {
+      prod = env {
+        server = vm 'Server' {
+          instanceOf cloud.api
+          main = instanceOf cloud.db
+        }
+        backup = vm
+      }
+      prod.server.api -> prod.server.main
+    }
+    deployment {
+      extend prod.server {
+        instanceOf customer
+      }
+    }
+    views {
+      deployment view deploy {
+        include prod.**
+        exclude prod.server.api
+      }
+    }
+  `
+
+  function renameDeployment(fqn: string, name: string) {
+    return {
+      viewId: 'index' as ViewId,
+      change: { op: 'rename-element' as const, target: { deployment: fqn as DeploymentFqn }, name },
+    }
+  }
+
+  it('UT-016: renames a deployment node, its extend, relations and view rules', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': model, 'views.c4': views, 'deployment.c4': deployment })
+    expect(await ws.apply(renameDeployment('prod.server', 'host'))).toMatchObject({ success: true })
+    expect(ws.read('deployment.c4')).toMatchInlineSnapshot(`
+      "deployment {
+        prod = env {
+          host = vm 'Server' {
+            instanceOf cloud.api
+            main = instanceOf cloud.db
+          }
+          backup = vm
+        }
+        prod.host.api -> prod.host.main
+      }
+      deployment {
+        extend prod.host {
+          instanceOf customer
+        }
+      }
+      views {
+        deployment view deploy {
+          include prod.**
+          exclude prod.host.api
+        }
+      }
+      "
+    `)
+  })
+
+  it('UT-012: renaming an unnamed instance writes its name, and renames its references', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': model, 'views.c4': views, 'deployment.c4': deployment })
+    expect(await ws.apply(renameDeployment('prod.server.api', 'apiMain'))).toMatchObject({ success: true })
+    expect(ws.read('deployment.c4')).toContain(`    apiMain = instanceOf cloud.api\n`)
+    expect(ws.read('deployment.c4')).toContain(`prod.server.apiMain -> prod.server.main`)
+    expect(ws.read('deployment.c4')).toContain(`exclude prod.server.apiMain`)
+    // the element is not renamed
+    expect(ws.read('model.c4')).toBe(stripped(model))
+  })
+
+  it('UT-016: renames a named instance', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': model, 'views.c4': views, 'deployment.c4': deployment })
+    expect(await ws.apply(renameDeployment('prod.server.main', 'primary'))).toMatchObject({ success: true })
+    expect(ws.read('deployment.c4')).toContain(`primary = instanceOf cloud.db`)
+    expect(ws.read('deployment.c4')).toContain(`prod.server.api -> prod.server.primary`)
+  })
+
+  it('UT-017: refuses a name taken by a sibling deployment item', async () => {
+    const ws = await memfsWorkspace({ 'model.c4': model, 'views.c4': views, 'deployment.c4': deployment })
+    expect(await ws.apply(renameDeployment('prod.server', 'backup'))).toEqual({
+      success: false,
+      code: 'name-collision',
+      error: 'prod already has backup',
+    })
+    expect(await ws.apply(renameDeployment('prod.server.main', 'api'))).toEqual({
+      success: false,
+      code: 'name-collision',
+      error: 'prod.server already has api',
     })
   })
 })
