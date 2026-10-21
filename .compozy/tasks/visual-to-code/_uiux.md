@@ -150,6 +150,14 @@ ACs/ECs), `_dx.md` (the non-UI half of the surface).
   shows a blue info notification with the same text (auto-close 6 s).
 - **States**: hidden (auto layout, read-only), shown.
 
+### Prompts and palette (2026-10-19, UX follow-up of the QA pass)
+
+- The drop, connect and title prompts are rendered by `editor-ui/PromptPortal.tsx`, anchored at a
+  point of the canvas: above the nodes, clickable, at the same size whatever the zoom, and moved back
+  inside the canvas when they would overflow. Their fields wrap (max 340 px) in a narrow window.
+- The palette (S3) collapses by clicking its title (`aria-expanded`), to free the canvas in a narrow
+  window. It is a panel above the canvas, so a prompt under it is reached by collapsing it.
+
 ## Component plan
 
 ### Rules
