@@ -539,6 +539,7 @@ describe('rename-element in the pipeline', () => {
       success: false,
       code: 'invalid-result',
       error: 'The change would break model.c4:6',
+      modifiedUris: [ws.uri('model.c4')],
     })
     expect({ model: ws.read('model.c4'), snapshot: ws.snapshot('index') }).toEqual(before)
   })
@@ -644,5 +645,35 @@ describe('rename-element across projects', () => {
       }
               "
     `)
+  })
+})
+
+describe('reverted changes with an LSP connection', () => {
+  it('review 001-002: a refused change lists the reverted documents, so the editor can save them', async () => {
+    const ws = await memfsWorkspace({
+      'model.c4': `
+        specification { element system }
+        model {
+          cloud = system {
+            api = system
+            worker = system {
+              -> store
+            }
+          }
+          store = system
+        }
+      `,
+      'views.c4': views,
+    }, { lsp: true })
+    const before = ws.read('model.c4')
+    expect(await ws.apply(rename('cloud.api', 'store'))).toEqual({
+      success: false,
+      code: 'invalid-result',
+      error: 'The change would break model.c4:6',
+      modifiedUris: [ws.uri('model.c4')],
+    })
+    // applied, then reverted: two workspace edits
+    expect(ws.lsp!.applied).toHaveLength(2)
+    expect(ws.read('model.c4')).toBe(before)
   })
 })

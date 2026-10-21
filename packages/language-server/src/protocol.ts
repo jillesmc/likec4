@@ -317,6 +317,11 @@ export namespace ChangeView {
      * Error code, present when the change was rejected deterministically
      */
     code?: ViewChangeErrorCode | undefined
+    /**
+     * Documents the change was applied to and then reverted from:
+     * their content is unchanged, but an editor may hold them as unsaved
+     */
+    modifiedUris?: string[] | undefined
   }
 
   export const req = new RequestType<Params, Res, void>('likec4/change-view')

@@ -386,6 +386,7 @@ export class LikeC4ModelChanges {
           success: false,
           code: err.code,
           error: err.message,
+          ...err.modifiedUris && { modifiedUris: err.modifiedUris },
         }
       }
       const error = loggable(wrapError(err, `Failed to apply change ${change.op} ${viewId}`))
@@ -437,9 +438,10 @@ export class LikeC4ModelChanges {
           throw new ModelChangeError(
             'apply-failed',
             `Change has errors and could not be reverted (${reverted.reason}): ${newError}`,
+            [...before.keys()],
           )
         }
-        throw new ModelChangeError('invalid-result', `Change reverted: ${newError}`)
+        throw new ModelChangeError('invalid-result', `Change reverted: ${newError}`, [...before.keys()])
       }
     }
 
@@ -458,9 +460,10 @@ export class LikeC4ModelChanges {
           throw new ModelChangeError(
             'apply-failed',
             `Change breaks ${broken} and could not be reverted (${reverted.reason})`,
+            [...before.keys()],
           )
         }
-        throw new ModelChangeError('invalid-result', `The change would break ${broken}`)
+        throw new ModelChangeError('invalid-result', `The change would break ${broken}`, [...before.keys()])
       }
       viewIds = viewIdChanges(baseline.views, await this.viewsOf(projectId), renames)
       for (const project of projects) {
