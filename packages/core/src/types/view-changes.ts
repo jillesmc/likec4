@@ -171,12 +171,12 @@ export namespace ViewChange {
   }
 
   /**
-   * Rename the identifier of an element: its definition and every reference in the workspace.
-   * Manual layouts follow the new name.
+   * Rename the identifier of an element, a deployment node or a deployed instance:
+   * its definition and every reference in the workspace. Manual layouts follow the new name.
    */
   export interface RenameElement {
     op: 'rename-element'
-    target: { element: scalar.Fqn }
+    target: { element: scalar.Fqn } | { deployment: scalar.DeploymentFqn }
     name: string
   }
 }
