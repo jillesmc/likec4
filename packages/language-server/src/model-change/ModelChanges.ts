@@ -701,29 +701,9 @@ export class LikeC4ModelChanges {
     const workspace = this.services.shared.workspace
     const uris = [...edits.keys()].map(uri => URI.parse(uri))
     if (!lsp) {
-      // fallback to direct file write if LSP connection is not available (e.g. when running in MCP/CLI/vite)
-      const written = [] as URI[]
-      let failure: string | null = null
-      for (const [uri, textEdits] of edits) {
-        const doc = workspace.LangiumDocuments.getDocument(URI.parse(uri))
-        if (!doc) {
-          failure = `Document ${uri} not found`
-          break
-        }
-        const text = TextDocument.applyEdits(doc.textDocument, textEdits)
-        try {
-          await workspace.FileSystemProvider.writeFile(doc.uri, text)
-          written.push(doc.uri)
-        } catch (err) {
-          failure = err instanceof Error ? err.message : String(err)
-          break
-        }
-      }
-      // Rebuild what was written, also when a later write failed
-      if (written.length > 0) {
-        await workspace.DocumentBuilder.update(written, [])
-      }
-      return failure ? { applied: false, reason: failure } : { applied: true }
+      // Written and rebuilt together: the file watcher must not rebuild one of them in between,
+      // the documents would be linked against an index where the others are not updated yet
+      return await workspace.FileSystemWatcher.exclusive(() => this.writeFiles(edits))
     }
     const applyResult = await lsp.workspace.applyEdit({
       label: `LikeC4 - change view`,
@@ -739,5 +719,34 @@ export class LikeC4ModelChanges {
     }
     await workspace.DocumentBuilder.update(uris, [])
     return { applied: true }
+  }
+
+  /**
+   * Writes the edited files and rebuilds them (no LSP connection: MCP, CLI, vite)
+   */
+  protected async writeFiles(edits: Map<string, TextEdit[]>): Promise<ApplyEditsResult> {
+    const workspace = this.services.shared.workspace
+    const written = [] as URI[]
+    let failure: string | null = null
+    for (const [uri, textEdits] of edits) {
+      const doc = workspace.LangiumDocuments.getDocument(URI.parse(uri))
+      if (!doc) {
+        failure = `Document ${uri} not found`
+        break
+      }
+      const text = TextDocument.applyEdits(doc.textDocument, textEdits)
+      try {
+        await workspace.FileSystemProvider.writeFile(doc.uri, text)
+        written.push(doc.uri)
+      } catch (err) {
+        failure = err instanceof Error ? err.message : String(err)
+        break
+      }
+    }
+    // Rebuild what was written, also when a later write failed
+    if (written.length > 0) {
+      await workspace.DocumentBuilder.update(written, [])
+    }
+    return failure ? { applied: false, reason: failure } : { applied: true }
   }
 }

@@ -73,6 +73,13 @@ export interface FileSystemWatcher extends AsyncDisposable {
    * Watches a folder for changes and triggers a reload of the documents and projects.
    */
   watch(folder: string): void
+
+  /**
+   * Runs the action with no file change handled meanwhile.
+   * Files written by the action (e.g. model changes) are handled afterwards,
+   * when their documents are already up to date.
+   */
+  exclusive<T>(action: () => Promise<T>): Promise<T>
 }
 
 export interface LikeC4ManualLayoutsModuleContext {

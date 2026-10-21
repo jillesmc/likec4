@@ -93,6 +93,10 @@ export class NoopFileSystemWatcher implements FileSystemWatcher {
     return
   }
 
+  exclusive<T>(action: () => Promise<T>): Promise<T> {
+    return action()
+  }
+
   dispose(): Promise<void> {
     return Promise.resolve()
   }

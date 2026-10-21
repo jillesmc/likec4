@@ -46,6 +46,11 @@ export class ChokidarFileSystemWatcher implements FileSystemWatcher {
     this.watcher = this.createWatcher(folder)
   }
 
+  exclusive<T>(action: () => Promise<T>): Promise<T> {
+    // the whole action, without the queue timeout
+    return this.queue.add(action, { throwOnTimeout: true, timeout: Number.POSITIVE_INFINITY })
+  }
+
   async dispose(): Promise<void> {
     if (this.watcher) {
       const watcher = this.watcher
@@ -133,6 +138,12 @@ export class ChokidarFileSystemWatcher implements FileSystemWatcher {
         break
       }
       case hasLikeC4Ext(filename): {
+        // Already up to date, e.g. written by a model change that rebuilt it
+        const document = workspace.LangiumDocuments.getDocument(uri)
+        if (document && document.textDocument.getText() === await workspace.FileSystemProvider.readFile(uri)) {
+          logger.debug`file changed, document up to date: ${path}`
+          break
+        }
         logger.debug`file changed: ${path}`
         await workspace.DocumentBuilder.update([uri], [])
         break
