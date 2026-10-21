@@ -53,12 +53,14 @@ describe('rename', () => {
 
   it('UT-063: only elements of this project can be renamed', () => {
     const node = (type: string, data: object) => ({ type, data })
-    expect(renameTargetOf(node('element', { modelFqn: 'cloud.api' }))).toBe('cloud.api')
-    expect(renameTargetOf(node('compound-element', { modelFqn: 'cloud' }))).toBe('cloud')
+    expect(renameTargetOf(node('element', { modelFqn: 'cloud.api' }))).toEqual({ element: 'cloud.api' })
+    expect(renameTargetOf(node('compound-element', { modelFqn: 'cloud' }))).toEqual({ element: 'cloud' })
     // imported from another project
     expect(renameTargetOf(node('element', { modelFqn: '@other.api' }))).toBeNull()
-    // deployment nodes and instances are task 03
-    expect(renameTargetOf(node('deployment', { modelFqn: 'cloud.api', deploymentFqn: 'prod.api' }))).toBeNull()
+    // deployment nodes and instances rename themselves, not their element
+    expect(renameTargetOf(node('deployment', { modelFqn: 'cloud.api', deploymentFqn: 'prod.api' })))
+      .toEqual({ deployment: 'prod.api' })
+    expect(renameTargetOf(node('compound-deployment', { deploymentFqn: 'prod' }))).toEqual({ deployment: 'prod' })
     expect(renameTargetOf(null)).toBeNull()
   })
 

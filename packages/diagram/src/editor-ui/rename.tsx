@@ -1,5 +1,5 @@
 import type { XYPoint } from '@likec4/core/geometry'
-import type { Fqn, ViewChange } from '@likec4/core/types'
+import { type ViewChange, DeploymentFqn } from '@likec4/core/types'
 import { nameFromFqn, parentFqn } from '@likec4/core/utils'
 import { ActionIcon, Tooltip } from '@mantine/core'
 import { IconCursorText } from '@tabler/icons-react'
@@ -12,12 +12,21 @@ import { identifierError, takenNames } from './identifier'
 import { PromptPortal } from './PromptPortal'
 import { TitlePrompt } from './TitlePrompt'
 
+export type RenameTarget = ViewChange.RenameElement['target']
+
 /**
- * The element renamed from a node: an element of this project (not imported)
+ * What a node renames: its deployment node or instance in deployment views,
+ * otherwise its element when it belongs to this project (not imported)
  */
-export function renameTargetOf(node: ConnectableNode | null | undefined): Fqn | null {
+export function renameTargetOf(node: ConnectableNode | null | undefined): RenameTarget | null {
+  if (
+    (node?.type === 'deployment' || node?.type === 'compound-deployment')
+    && 'deploymentFqn' in node.data && typeof node.data.deploymentFqn === 'string'
+  ) {
+    return { deployment: DeploymentFqn(node.data.deploymentFqn) }
+  }
   const fqn = modelFqnOf(node)
-  return fqn && !fqn.startsWith('@') ? fqn : null
+  return fqn && !fqn.startsWith('@') ? { element: fqn } : null
 }
 
 /**
@@ -32,7 +41,7 @@ export function isRenameHotkey(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'm
 }
 
 type Renaming = {
-  element: Fqn
+  target: RenameTarget
   name: string
   taken: ReadonlySet<string>
   center: XYPoint
@@ -66,16 +75,27 @@ export function useRenamePrompt(onChange: (change: ViewChange.RenameElement) => 
 
   const rename = useCallbackRef((nodeId: string) => {
     const internal = xyflow.getInternalNode(nodeId)
-    const element = renameTargetOf(internal)
-    if (!internal || !element) {
+    const target = renameTargetOf(internal)
+    if (!internal || !target) {
       return
     }
-    const name = nameFromFqn(element)
-    const taken = model ? takenNames(model, { model: 'element', parent: parentFqn(element) }) : new Set<string>()
+    const fqn = 'element' in target ? target.element : target.deployment
+    const name = nameFromFqn(fqn)
+    let taken = new Set<string>()
+    switch (true) {
+      case !model:
+        break
+      case 'element' in target:
+        taken = takenNames(model, { model: 'element', parent: parentFqn(target.element) })
+        break
+      case 'deployment' in target:
+        taken = takenNames(model, { model: 'deployment', parent: parentFqn(target.deployment) })
+        break
+    }
     taken.delete(name)
     const { x, y } = internal.internals.positionAbsolute
     setRenaming({
-      element,
+      target,
       name,
       taken,
       center: {
@@ -103,7 +123,7 @@ export function useRenamePrompt(onChange: (change: ViewChange.RenameElement) => 
         onConfirm={name => {
           setRenaming(null)
           if (name !== renaming.name) {
-            onChange({ op: 'rename-element', target: { element: renaming.element }, name })
+            onChange({ op: 'rename-element', target: renaming.target, name })
           }
         }}
       />

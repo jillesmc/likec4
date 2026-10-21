@@ -91,6 +91,7 @@ export function DeploymentElementToolbar(props: Types.NodeProps<'deployment'>) {
       />
       {enableVscode && <GoToSourceButton deploymentId={deploymentFqn} />}
       {enableRelationshipBrowser && modelFqn && <BrowseRelationshipsButton fqn={modelFqn} />}
+      <RenameButton nodeId={props.id} />
       <DeleteFromModelButton target={{ deploymentNode: deploymentFqn }} title={props.data.title} />
     </Toolbar>
   )

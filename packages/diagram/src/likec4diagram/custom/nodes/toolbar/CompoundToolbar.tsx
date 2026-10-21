@@ -75,6 +75,7 @@ export function CompoundDeploymentToolbar(props: Types.NodeProps<'compound-deplo
       />
       {enableVscode && <GoToSourceButton deploymentId={deploymentFqn} />}
       {enableRelationshipBrowser && modelFqn && <BrowseRelationshipsButton fqn={modelFqn} />}
+      <RenameButton nodeId={props.id} />
     </Toolbar>
   )
 }
