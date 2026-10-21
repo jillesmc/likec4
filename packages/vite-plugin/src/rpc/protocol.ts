@@ -10,6 +10,10 @@ export interface UpdateViewResult {
    * Fqn of the item created by the change
    */
   created?: string | undefined
+  /**
+   * New id of the view, when the change renamed it (an unnamed `view of x`)
+   */
+  viewId?: ViewId | undefined
 }
 
 export interface LikeC4VitePluginRpc {

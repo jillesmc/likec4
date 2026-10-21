@@ -30,5 +30,6 @@ export async function updateView({
   return {
     ...result.historyId && { historyId: result.historyId },
     ...result.created && { created: result.created },
+    ...result.viewId && { viewId: result.viewId },
   }
 }
