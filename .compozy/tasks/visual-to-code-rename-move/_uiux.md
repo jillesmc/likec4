@@ -15,13 +15,13 @@ the existing Mantine components, PandaCSS tokens and the phase-1 prompt componen
 
 ## Surface map
 
-| #  | Surface                            | Kind     | Core change                                                                                               | Stories        |
-| -- | ---------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| R1 | Element / compound toolbar         | modified | "Rename identifier" (icon `IconCursorText`) and "Move to…" (icon `IconArrowMoveRight`) buttons            | US-001, US-003 |
-| R2 | Deployment node / instance toolbar | modified | "Rename identifier" only                                                                                  | US-002         |
-| R3 | Rename prompt                      | new      | `TitlePrompt` with one field, label `Identifier`, current name selected, identifier validation            | US-001, US-002 |
-| R4 | Move prompt                        | new      | Searchable list: "Top level", then `title (fqn)` of each possible parent; Enter picks the highlighted one | US-003         |
-| R5 | F2 hotkey                          | new      | Bound on the canvas (`DiagramXYFlow`); ignored while a text field has focus                               | US-001         |
+| #  | Surface                            | Kind     | Core change                                                                                                                                                                    | Stories        |
+| -- | ---------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| R1 | Element / compound toolbar         | modified | "Rename identifier" (icon `IconCursorText`) and "Move to…" (icon `IconArrowMoveRight`) buttons                                                                                 | US-001, US-003 |
+| R2 | Deployment node / instance toolbar | modified | "Rename identifier" only                                                                                                                                                       | US-002         |
+| R3 | Rename prompt                      | new      | `TitlePrompt` with one field, label `Identifier`, current name selected, identifier validation                                                                                 | US-001, US-002 |
+| R4 | Move prompt                        | new      | `TitlePrompt` with `options`: "Top level", then the FQN of each possible parent, suggested while typing (phase-1 "Element to deploy" pattern); only a listed value is accepted | US-003         |
+| R5 | F2 hotkey                          | new      | Bound on the canvas (`DiagramXYFlow`); ignored while a text field has focus                                                                                                    | US-001         |
 
 ## States
 
@@ -31,6 +31,6 @@ the existing Mantine components, PandaCSS tokens and the phase-1 prompt componen
 | R3      | taken name           | Error text `Already used by a sibling` (phase-1 identifier prompt), Enter disabled    |
 | R3, R4  | pending              | The prompt closes; the node stays as is until the view updates (no ghost for renames) |
 | R3, R4  | refused              | Phase-1 failure toast with the server message                                         |
-| R4      | no match             | `No element matches` in the list                                                      |
+| R4      | no match             | Move button disabled, Enter does nothing                                              |
 | R1, R2  | read-only / imported | Buttons absent                                                                        |
 | any     | view id changed      | The canvas switches to the new id without a reload                                    |
