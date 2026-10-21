@@ -132,6 +132,8 @@ export const useRpc = defineService(() => {
         return {
           success: false as const,
           error: res.error,
+          // reverted documents: same content, but unsaved in the editor
+          modifiedUris: (res.modifiedUris ?? []).map(uri => client.protocol2CodeConverter.asUri(uri)),
         }
       }
       return {

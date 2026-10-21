@@ -134,7 +134,11 @@ export function activateMessenger() {
         // direct output to bypass telemetry error
         output.error(result.error)
         output.show(true)
-        return result
+        // the change was applied and reverted: save the documents back to their unchanged content
+        for (const uri of result.modifiedUris) {
+          await saveDocument(uri)
+        }
+        return { success: false, error: result.error }
       }
       // For save-view-snapshot, we don't need to navigate
       if (change.op === 'reset-manual-layout' || change.op === 'save-view-snapshot') {
