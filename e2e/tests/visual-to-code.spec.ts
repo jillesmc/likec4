@@ -509,6 +509,30 @@ test('E2E-002 (rename): Ctrl+Z / Ctrl+Shift+Z undo and redo the rename with the 
   await expect(page.locator('button:has(svg.tabler-icon-alert-triangle)')).toHaveCount(0)
 })
 
+test('E2E-003 (move): "Move to…" moves the element under another parent', async ({ page }) => {
+  await page.goto('/view/index/')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(cloud).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await cloud.click()
+  const toolbar = page.locator('.react-flow__node-toolbar').filter({ has: page.getByText('cloud', { exact: true }) })
+  await toolbar.getByRole('button', { name: 'Move to…' }).click()
+  const input = page.getByRole('combobox', { name: 'Move to' })
+  // only an element of the list is accepted
+  await input.fill('cust')
+  await expect(page.getByRole('button', { name: 'Move', exact: true })).toBeDisabled()
+  await input.fill('customer')
+  await input.press('Enter')
+
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(
+    `    description 'A customer of Cloud System'\n    cloud = system 'Cloud System'\n  }`,
+  )
+  // it was shown by `include *`, an include keeps it in the view
+  expect(await readServed()).toContain('include customer.cloud')
+  await expect(page.locator('.react-flow__node[data-id="customer.cloud"]')).toBeVisible({ timeout: 10_000 })
+})
+
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
   const fixture = await readServed()
   await page.goto('/view/index/')
