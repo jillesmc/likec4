@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 2
 round_created_at: 2026-10-21T00:46:08Z
-status: pending
+status: valid
 file: packages/diagram/src/editor-ui/ConnectPrompt.tsx
 line: 96
 severity: high
@@ -23,5 +23,6 @@ Suggested fix: handle Enter only when the event target is an input or select (or
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Confirmed with a Playwright scenario: Enter with the focus on "Cancel" wrote `-> cloud`. Root cause: `ConnectPrompt` handles Enter on its container `div`, so the keydown from a focused button confirmed before the button's own click. Fix: Enter confirms only when the target is not a button (a focused button keeps its native Enter → click); Escape still cancels from anywhere.
+- Fix: `packages/diagram/src/editor-ui/ConnectPrompt.tsx`. Regression: E2E `review 002-001` (focus Cancel, Enter → prompt closed, file byte-identical); it failed before the fix. Gates: diagram typecheck, diagram 230 passed, dev-server E2E 22 passed (twice), static-build E2E 2 passed.

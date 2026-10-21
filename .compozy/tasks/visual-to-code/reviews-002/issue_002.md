@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 2
 round_created_at: 2026-10-21T00:46:08Z
-status: pending
+status: valid
 file: packages/diagram/src/likec4diagram/DiagramXYFlow.tsx
 line: 352
 severity: medium
@@ -23,5 +23,6 @@ Suggested fix: prefill from the model relation (`likec4model.findRelationship(re
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Root cause: the editor was prefilled with `edge.data.label`, the label computed for the view, which a view rule can override (`include a -> b with { title }`), while the edit is written to the relation. Fix: prefill from the relation in the model (`likec4model.findRelationship(id, 'model')?.title`), falling back to the edge label only without a model; the no-op check compares against the same value.
+- Fix: `packages/diagram/src/likec4diagram/DiagramXYFlow.tsx`. Regression: E2E `review 002-002` (relation `'reads'`, view label `'queries'` → the editor shows `reads`); it failed before the fix. Gates as in issue 001.
