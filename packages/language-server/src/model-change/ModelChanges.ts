@@ -28,6 +28,7 @@ import { changeViewLayout } from './changeViewLayout'
 import { deleteFromModel } from './deleteFromModel'
 import { excludeFromView } from './excludeFromView'
 import { ModelChangeError } from './ModelChangeError'
+import { moveElement } from './moveElement'
 import { removeDynamicStep } from './removeDynamicStep'
 import { renameElement } from './renameElement'
 import { changePropertyHandler, preparePayload } from './viewChange'
@@ -48,6 +49,7 @@ type ModelChangeOp =
   | ViewChange.AddDynamicStep
   | ViewChange.RemoveDynamicStep
   | ViewChange.RenameElement
+  | ViewChange.MoveElement
 
 const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   change.op === 'add-relation'
@@ -60,6 +62,7 @@ const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   || change.op === 'add-dynamic-step'
   || change.op === 'remove-dynamic-step'
   || change.op === 'rename-element'
+  || change.op === 'move-element'
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 
@@ -360,6 +363,10 @@ export class LikeC4ModelChanges {
         }
         case 'rename-element': {
           plan = renameElement(this.services, { projectId: project.id, model, change })
+          break
+        }
+        case 'move-element': {
+          plan = moveElement(this.services, { projectId: project.id, lookup, model, change })
           break
         }
         default:

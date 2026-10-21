@@ -5,11 +5,11 @@ import type { LikeC4Services } from '../module'
 import { projectIdFrom } from '../utils'
 
 /**
- * Resolved references to elements and deployment items:
- * `document uri|kind|project|target fqn` → lines of the references (0-based).
- * The project of the target is part of the key: projects may have the same local FQNs.
+ * Resolved references to elements and deployment items: `kind|project|target fqn` → where the references are
+ * (`file:line`). The project of the target is part of the key: projects may have the same local FQNs.
+ * Documents are not: a move takes references along to another file.
  */
-export type ResolvedReferences = Map<string, number[]>
+export type ResolvedReferences = Map<string, string[]>
 
 const ELEMENT = 'element'
 const DEPLOYMENT = 'deployment'
@@ -27,6 +27,13 @@ export function resolvedReferences(services: LikeC4Services, projects: Iterable<
           if (!isReference(reference.reference)) {
             continue
           }
+          // only the item the whole reference `a.b.c` points to: inner segments are the path to it
+          if (
+            (ast.isFqnRef(reference.container) || ast.isStrictFqnElementRef(reference.container))
+            && reference.container.$containerProperty === 'parent'
+          ) {
+            continue
+          }
           const target = reference.reference.ref
           let id: string
           switch (true) {
@@ -39,13 +46,13 @@ export function resolvedReferences(services: LikeC4Services, projects: Iterable<
             default:
               continue
           }
-          const key = `${doc.uri.toString()}|${id}`
-          const line = reference.reference.$refNode?.range.start.line ?? 0
-          const lines = result.get(key)
-          if (lines) {
-            lines.push(line)
+          const line = (reference.reference.$refNode?.range.start.line ?? 0) + 1
+          const location = `${doc.uri.path.slice(doc.uri.path.lastIndexOf('/') + 1)}:${line}`
+          const locations = result.get(id)
+          if (locations) {
+            locations.push(location)
           } else {
-            result.set(key, [line])
+            result.set(id, [location])
           }
         }
       }
@@ -55,7 +62,7 @@ export function resolvedReferences(services: LikeC4Services, projects: Iterable<
 }
 
 /**
- * The references from `before` that do not resolve to the same item `after` the change
+ * The references from `before` that no longer resolve to the same item `after` the change
  * (under the renames of items of `projectId`), as `file:line`; null when every reference still resolves the same way.
  */
 export function brokenReference(
@@ -65,8 +72,8 @@ export function brokenReference(
   projectId: ProjectId,
 ): string | null {
   const expected: ResolvedReferences = new Map()
-  for (const [key, lines] of before) {
-    const [uri, kind, project, fqn] = key.split('|') as [string, string, string, string]
+  for (const [key, locations] of before) {
+    const [kind, project, fqn] = key.split('|') as [string, string, string]
     let mapped = fqn
     switch (true) {
       case project !== projectId:
@@ -78,16 +85,15 @@ export function brokenReference(
         mapped = renameFqn(renames.deployments, fqn)
         break
     }
-    expected.set(`${uri}|${kind}|${project}|${mapped}`, lines)
+    const mappedKey = `${kind}|${project}|${mapped}`
+    expected.set(mappedKey, [...expected.get(mappedKey) ?? [], ...locations])
   }
-  for (const key of new Set([...expected.keys(), ...after.keys()])) {
-    const was = expected.get(key) ?? []
+  // Every reference that existed still points to its item; the change may add references (e.g. an `include`).
+  // ponytail: counts per item, a capture balanced by an added reference to the same item is not seen
+  for (const [key, was] of expected) {
     const now = after.get(key) ?? []
-    if (was.length !== now.length) {
-      const uri = key.slice(0, key.indexOf('|'))
-      const lines = now.length > was.length ? now.filter(l => !was.includes(l)) : was.filter(l => !now.includes(l))
-      const line = (lines[0] ?? now[0] ?? was[0] ?? 0) + 1
-      return `${uri.slice(uri.lastIndexOf('/') + 1)}:${line}`
+    if (now.length < was.length) {
+      return was.find(l => !now.includes(l)) ?? was[0] ?? key
     }
   }
   return null

@@ -7,6 +7,7 @@ import {
   type Relationship,
   type ViewId,
   RelationId,
+  renameFqn,
   splitGlobalFqn,
 } from '@likec4/core'
 import { computeView } from '@likec4/core/compute-view'
@@ -121,4 +122,49 @@ export function isDeploymentElementVisible(
     return true
   }
   return result.view.nodes.some(node => node.id === element.id)
+}
+
+/**
+ * Predicts whether a moved element would still be visible in the view, under its new FQN
+ * (the model is patched in memory with the renamed elements and relation ends).
+ * Returns `true` when the prediction is not possible (see {@link isRelationVisible}).
+ */
+export function isMovedElementVisible(
+  model: LikeC4Model<UnknownParsed>,
+  viewId: ViewId,
+  renames: ReadonlyMap<string, string>,
+  movedFqn: Fqn,
+): boolean {
+  const data = model.$data
+  const viewSource = data.views[viewId]
+  if (!viewSource) {
+    return true
+  }
+  const rename = <T extends string>(fqn: T): T => renameFqn(renames, fqn) as T
+  const renameRef = (ref: FqnRef.ModelRef): FqnRef.ModelRef => ref.project ? ref : { ...ref, model: rename(ref.model) }
+  // parents before their children, as in parsed data
+  const elements = Object.values(data.elements)
+    .map(element => ({ ...element, id: rename(element.id) }))
+    .sort((a, b) => a.id.split('.').length - b.id.split('.').length)
+  let patched: LikeC4Model<UnknownParsed>
+  try {
+    patched = LikeC4Model.create({
+      ...data,
+      elements: Object.fromEntries(elements.map(element => [element.id, element])),
+      relations: Object.fromEntries(
+        Object.entries(data.relations).map(([id, relation]) => [id, {
+          ...relation,
+          source: renameRef(relation.source),
+          target: renameRef(relation.target),
+        }]),
+      ),
+    })
+  } catch {
+    return true
+  }
+  const result = computeView(viewSource, patched)
+  if (!result.isSuccess) {
+    return true
+  }
+  return result.view.nodes.some(node => node.id === movedFqn)
 }

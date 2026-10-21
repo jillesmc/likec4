@@ -90,7 +90,8 @@ function insertion(
   return {
     edit: {
       range: { start: position, end: position },
-      newText: prefix + lines.map(l => childIndent + l).join(eol) + suffix,
+      // blank lines stay blank
+      newText: prefix + lines.map(l => l === '' ? '' : childIndent + l).join(eol) + suffix,
     },
     range: {
       start: { line: position.line + 1, character: childIndent.length },
