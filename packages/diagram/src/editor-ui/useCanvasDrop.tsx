@@ -1,7 +1,6 @@
 import type { XYPoint } from '@likec4/core/geometry'
 import { type DeploymentKind, type ElementKind, type ViewChange, DeploymentFqn, Fqn } from '@likec4/core/types'
 import { deriveIdentifier } from '@likec4/core/utils'
-import { ViewportPortal } from '@xyflow/react'
 import { type DragEvent, type ReactNode, useMemo, useState } from 'react'
 import { useOptionalLikeC4Model } from '../context/LikeC4ModelContext'
 import { useCallbackRef } from '../hooks/useCallbackRef'
@@ -9,6 +8,7 @@ import { useXYFlow } from '../hooks/useXYFlow'
 import { type ConnectableNode, innermostNode, modelFqnOf } from './connect'
 import { PALETTE_DRAG_TYPE } from './ElementPalette'
 import { takenNames } from './identifier'
+import { PromptPortal } from './PromptPortal'
 import { type IdentifierField, TitlePrompt } from './TitlePrompt'
 
 /**
@@ -151,40 +151,30 @@ export function useCanvasDrop(
   }
 
   const popover = drop && (
-    <ViewportPortal>
-      <div
-        style={{
-          position: 'absolute',
-          transform: `translate(${drop.position.x}px, ${drop.position.y}px)`,
-          // above the nodes: the prompt usually opens over the target node
-          zIndex: 1000,
-          // the viewport portal of xyflow does not receive pointer events
-          pointerEvents: 'all',
-        }}>
-        {drop.op === 'add-instance'
-          ? (
-            <TitlePrompt
-              label="Element to deploy"
-              initialTitle=""
-              confirmLabel="Add"
-              options={config.viewType === 'deployment' ? config.elements : []}
-              {...identifier && { identifier }}
-              onCancel={() => setDrop(null)}
-              onConfirm={confirm}
-            />
-          )
-          : (
-            <TitlePrompt
-              label={`Title of the new ${drop.kind}`}
-              initialTitle={`New ${drop.kind}`}
-              confirmLabel="Add"
-              {...identifier && { identifier }}
-              onCancel={() => setDrop(null)}
-              onConfirm={confirm}
-            />
-          )}
-      </div>
-    </ViewportPortal>
+    <PromptPortal position={drop.position}>
+      {drop.op === 'add-instance'
+        ? (
+          <TitlePrompt
+            label="Element to deploy"
+            initialTitle=""
+            confirmLabel="Add"
+            options={config.viewType === 'deployment' ? config.elements : []}
+            {...identifier && { identifier }}
+            onCancel={() => setDrop(null)}
+            onConfirm={confirm}
+          />
+        )
+        : (
+          <TitlePrompt
+            label={`Title of the new ${drop.kind}`}
+            initialTitle={`New ${drop.kind}`}
+            confirmLabel="Add"
+            {...identifier && { identifier }}
+            onCancel={() => setDrop(null)}
+            onConfirm={confirm}
+          />
+        )}
+    </PromptPortal>
   )
 
   return { onDragOver, onDrop, popover }

@@ -1,10 +1,10 @@
 import type { XYPoint } from '@likec4/core/geometry'
 import type { RelationId, ViewChange } from '@likec4/core/types'
-import { ViewportPortal } from '@xyflow/react'
 import { type ReactNode, useState } from 'react'
 import { useCallbackRef } from '../hooks/useCallbackRef'
 import { useXYFlow } from '../hooks/useXYFlow'
 import { type ConnectableNode, titleTargetOf } from './connect'
+import { PromptPortal } from './PromptPortal'
 import { TitlePrompt } from './TitlePrompt'
 
 type Editing = {
@@ -57,31 +57,22 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
   })
 
   const editor = editing && (
-    <ViewportPortal>
-      <div
-        style={{
-          position: 'absolute',
-          transform: `translate(${editing.center.x}px, ${editing.center.y}px) translate(-50%, -50%)`,
-          zIndex: 1000,
-          // the viewport portal of xyflow does not receive pointer events
-          pointerEvents: 'all',
-        }}>
-        <TitlePrompt
-          label="Title"
-          initialTitle={editing.title}
-          confirmLabel="Save"
-          // an empty title removes the title of a relation
-          allowEmpty={typeof editing.target === 'object'}
-          onCancel={() => setEditing(null)}
-          onConfirm={title => {
-            setEditing(null)
-            if (title !== editing.title) {
-              onChange({ op: 'change-title', target: editing.target, title })
-            }
-          }}
-        />
-      </div>
-    </ViewportPortal>
+    <PromptPortal position={editing.center} centered>
+      <TitlePrompt
+        label="Title"
+        initialTitle={editing.title}
+        confirmLabel="Save"
+        // an empty title removes the title of a relation
+        allowEmpty={typeof editing.target === 'object'}
+        onCancel={() => setEditing(null)}
+        onConfirm={title => {
+          setEditing(null)
+          if (title !== editing.title) {
+            onChange({ op: 'change-title', target: editing.target, title })
+          }
+        }}
+      />
+    </PromptPortal>
   )
 
   return { onNodeDoubleClick, editRelationTitle, editor }

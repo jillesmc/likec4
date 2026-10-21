@@ -1,7 +1,7 @@
 import type { XYPoint } from '@likec4/core/geometry'
 import type { RelationshipKind, ViewChange } from '@likec4/core/types'
-import { ViewportPortal } from '@xyflow/react'
 import { type KeyboardEvent, type ReactNode, useState } from 'react'
+import { PromptPortal } from './PromptPortal'
 import type { StepPosition } from './steps'
 
 export type ConnectValues = {
@@ -96,6 +96,9 @@ export function ConnectPrompt({ kinds, positions, onConfirm, onCancel }: {
       onKeyDown={onKeyDown}
       style={{
         display: 'flex',
+        // wraps in a narrow window
+        flexWrap: 'wrap',
+        maxWidth: 340,
         gap: 4,
         padding: 6,
         borderRadius: 6,
@@ -153,31 +156,21 @@ export function useConnectPrompt(
 } {
   const [pending, setPending] = useState<Pending | null>(null)
   const prompt = pending && (
-    <ViewportPortal>
-      <div
-        style={{
-          position: 'absolute',
-          transform: `translate(${pending.position.x}px, ${pending.position.y}px)`,
-          // above the nodes: the prompt usually opens over the target node
-          zIndex: 1000,
-          // the viewport portal of xyflow does not receive pointer events
-          pointerEvents: 'all',
-        }}>
-        <ConnectPrompt
-          kinds={kinds}
-          positions={'positions' in pending ? pending.positions : undefined}
-          onCancel={() => setPending(null)}
-          onConfirm={values => {
-            setPending(null)
-            onAdd(
-              'positions' in pending
-                ? stepChange(pending.change, values, pending.positions)
-                : connectChange(pending.change, values, kinds),
-            )
-          }}
-        />
-      </div>
-    </ViewportPortal>
+    <PromptPortal position={pending.position}>
+      <ConnectPrompt
+        kinds={kinds}
+        positions={'positions' in pending ? pending.positions : undefined}
+        onCancel={() => setPending(null)}
+        onConfirm={values => {
+          setPending(null)
+          onAdd(
+            'positions' in pending
+              ? stepChange(pending.change, values, pending.positions)
+              : connectChange(pending.change, values, kinds),
+          )
+        }}
+      />
+    </PromptPortal>
   )
   return { open: setPending, prompt }
 }

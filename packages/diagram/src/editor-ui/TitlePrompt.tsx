@@ -87,6 +87,9 @@ export function TitlePrompt(
       className="nodrag nopan nowheel"
       style={{
         display: 'flex',
+        // wraps in a narrow window
+        flexWrap: 'wrap',
+        maxWidth: 340,
         gap: 4,
         padding: 6,
         borderRadius: 6,
