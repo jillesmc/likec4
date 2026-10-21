@@ -1,4 +1,4 @@
-import { access, copyFile, readdir, readFile, rm } from 'node:fs/promises'
+import { access, copyFile, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -36,4 +36,11 @@ export async function hasManualLayout(viewId: string): Promise<boolean> {
  */
 export async function readServed(file = 'model.c4'): Promise<string> {
   return await readFile(join(VISUAL_TO_CODE_DIR, file), 'utf-8')
+}
+
+/**
+ * Replaces the served copy of a fixture file (restored before the next test)
+ */
+export async function writeServed(file: string, content: string): Promise<void> {
+  await writeFile(join(VISUAL_TO_CODE_DIR, file), content, 'utf-8')
 }

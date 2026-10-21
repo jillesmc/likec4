@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { hasManualLayout, readServed, restoreFixture } from '../helpers/visual-to-code'
+import { hasManualLayout, readServed, restoreFixture, writeServed } from '../helpers/visual-to-code'
 
 test.beforeEach(async () => {
   await restoreFixture()
@@ -344,6 +344,93 @@ test('the connect prompt is moved back inside a narrow canvas', async ({ page })
   await page.getByLabel('Relation title').press('Enter')
   await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`-> cloud`)
   await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
+})
+
+test('review 002-001: Enter on the Cancel button of the connect prompt writes nothing', async ({ page }) => {
+  const fixture = await readServed()
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0, { timeout: 10_000 })
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const from = (await customer.locator('.likec4-connect-handle').boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
+  await page.mouse.up()
+
+  await page.getByRole('button', { name: 'Cancel', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('[data-likec4-connect-prompt]')).toHaveCount(0)
+  await page.waitForTimeout(1500)
+  expect(await readServed()).toBe(fixture)
+  await expect(page.locator('.react-flow__edge')).toHaveCount(0)
+})
+
+test('review 002-002: the relation title editor starts from the relation title, not the view label', async ({ page }) => {
+  // let the server process the fixture restore first: close writes to the same file are coalesced
+  await page.goto('/view/index/')
+  await expect(page.locator('.react-flow__node[data-id="customer"]')).toBeVisible()
+  await writeServed(
+    'model.c4',
+    [
+      `specification {`,
+      `  element actor`,
+      `  element system`,
+      `}`,
+      `model {`,
+      `  customer = actor 'Customer' {`,
+      `    -> cloud 'reads'`,
+      `  }`,
+      `  cloud = system 'Cloud System'`,
+      `}`,
+      `views {`,
+      `  view index {`,
+      `    include *`,
+      `    include customer -> cloud with { title 'queries' }`,
+      `  }`,
+      `}`,
+      ``,
+    ].join('\n'),
+  )
+  const label = page.locator('.likec4-edge-label-container').getByText('queries', { exact: true })
+  await expect(label).toBeVisible({ timeout: 10_000 })
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await label.dblclick()
+  await expect(page.getByLabel('Title')).toHaveValue('reads')
+  await page.getByLabel('Title').press('Escape')
+  // ends once the view is shown, so the next fixture restore is not mixed with the write above
+  await expect(page.getByLabel('Title')).toHaveCount(0)
+})
+
+test('review 002-003: an open prompt is closed when another view is shown', async ({ page }) => {
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const from = (await customer.locator('.likec4-connect-handle').boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
+  await page.mouse.up()
+  await expect(page.locator('[data-likec4-connect-prompt]')).toBeVisible()
+
+  // client-side navigation: the diagram stays mounted and shows another view
+  await page.evaluate(() => {
+    history.pushState({}, '', '/view/flow/?dynamic=diagram')
+    dispatchEvent(new PopStateEvent('popstate'))
+  })
+  await expect(page.locator('.react-flow__node[data-id="customer.app"]')).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('[data-likec4-connect-prompt]')).toHaveCount(0)
 })
 
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
