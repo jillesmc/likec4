@@ -135,7 +135,8 @@ Features 6–8 are cross-cutting and apply to features 1–5.
     the positional title after the identifier/kind. The same title is a no-op (no write). Quotes are
     escaped. Relations can be retitled too (Q6, owner 2026-10-18): the target is the relation id,
     the positional title goes right after the target reference, and only an edge backed by exactly
-    one relation defined in this project offers it (other edges: `read-only-target`). An empty
+    one relation offers it. Relations of other projects are not imported into a project's model, so
+    no edge can target one; an id unknown to the project is refused with `not-found`. An empty
     relation title removes the title literal or property. Step titles in dynamic views are not
     covered.
 11. **Validity guard**: after applying, if any touched document gains new errors (parse, linking or

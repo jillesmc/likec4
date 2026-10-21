@@ -243,7 +243,8 @@ is derived from `_user_stories.md`, `_spec.md` Part II, `_dx.md` and `_uiux.md`.
   (also when tags or a body follow).
 - **UT-222** (happy): `title` property in the body is updated.
 - **UT-223** (happy): empty title → the literal or property is removed.
-- **UT-224** (error): relation from another project → `read-only-target`; unknown id → `not-found`.
+- **UT-224** (error): relation id unknown to the project → `not-found`, nothing written (relations of other
+  projects are not imported, so no edge can target one).
 - **UT-225** (happy): double-click on the label of an edge with one relation opens the editor;
   with several relations it does not.
 

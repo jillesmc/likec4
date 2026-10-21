@@ -392,8 +392,8 @@ Acceptance criteria:
 
 Edge cases:
 
-- EC-1: The edge aggregates more than one relation, or the relation is defined in another project
-  → double-click does nothing.
+- EC-1: The edge aggregates more than one relation → double-click does nothing. (Relations of other
+  projects are not imported into the project's model, so they never appear as edges.)
 - EC-2: Same title → no write.
 
 ### US-015: Choose where a new step goes
