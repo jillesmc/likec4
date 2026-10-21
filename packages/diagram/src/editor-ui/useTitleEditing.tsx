@@ -27,6 +27,7 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
   onNodeDoubleClick: (event: { stopPropagation: () => void }, node: ConnectableNode & { id: string }) => void
   editRelationTitle: (relation: RelationId, title: string, at: XYPoint) => void
   editor: ReactNode
+  close: () => void
 } {
   const xyflow = useXYFlow()
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -75,5 +76,5 @@ export function useTitleEditing(onChange: (change: ViewChange.ChangeTitle) => vo
     </PromptPortal>
   )
 
-  return { onNodeDoubleClick, editRelationTitle, editor }
+  return { onNodeDoubleClick, editRelationTitle, editor, close: () => setEditing(null) }
 }

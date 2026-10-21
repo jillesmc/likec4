@@ -54,6 +54,7 @@ export function useCanvasDrop(
   onDragOver: (event: DragEvent) => void
   onDrop: (event: DragEvent) => void
   popover: ReactNode
+  close: () => void
 } {
   const xyflow = useXYFlow()
   const model = useOptionalLikeC4Model()
@@ -177,5 +178,5 @@ export function useCanvasDrop(
     </PromptPortal>
   )
 
-  return { onDragOver, onDrop, popover }
+  return { onDragOver, onDrop, popover, close: () => setDrop(null) }
 }

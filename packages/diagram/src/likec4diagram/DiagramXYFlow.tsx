@@ -12,7 +12,7 @@ import { useCustomCompareMemo } from '@react-hookz/web'
 import { Controls as XYFlowControls, Panel } from '@xyflow/react'
 import type { OnMove, OnMoveEnd, Viewport } from '@xyflow/system'
 import { shallowEqual } from 'fast-equals'
-import { type MouseEvent as ReactMouseEvent, type PropsWithChildren, useMemo } from 'react'
+import { type MouseEvent as ReactMouseEvent, type PropsWithChildren, useEffect, useMemo } from 'react'
 import type { JSX } from 'react/jsx-runtime'
 import { isEmpty } from 'remeda'
 import type { Simplify } from 'type-fest'
@@ -242,6 +242,13 @@ export function LikeC4DiagramXYFlow({
       diagram.editorActor().send({ type: 'error.show', message })
     },
   )
+  // A prompt belongs to the view it was opened in: close it when another view is shown
+  const closePrompts = useCallbackRef(() => {
+    connectPrompt.close()
+    canvasDrop.close()
+    titleEditing.close()
+  })
+  useEffect(() => closePrompts(), [viewId, closePrompts])
   nodesDraggable = resolveInteractionEnabled(nodesDraggable, nodesDraggableOverride, isEditorBusy)
   nodesSelectable = resolveInteractionEnabled(nodesSelectable, nodesSelectableOverride, isEditorBusy)
 
@@ -349,7 +356,16 @@ export function LikeC4DiagramXYFlow({
           ? relationTitleTargetOf(diagram.findDiagramEdge(edge.id as EdgeId)?.relations ?? [])
           : null
         if (relation) {
-          const title = typeof edge.data.label === 'string' ? edge.data.label : ''
+          // the title of the relation in the model: the label of the edge may come from the view
+          let title = ''
+          switch (true) {
+            case !!likec4model:
+              title = likec4model.findRelationship(relation, 'model')?.title ?? ''
+              break
+            case typeof edge.data.label === 'string':
+              title = edge.data.label
+              break
+          }
           titleEditing.editRelationTitle(relation, title, xyflow.screenToFlowPosition({ x: e.clientX, y: e.clientY }))
           return
         }

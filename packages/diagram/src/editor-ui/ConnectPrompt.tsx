@@ -79,12 +79,13 @@ export function ConnectPrompt({ kinds, positions, onConfirm, onCancel }: {
     setValues(v => ({ ...v, [key]: e.target.value }))
   const onKeyDown = (e: KeyboardEvent) => {
     e.stopPropagation()
-    switch (e.key) {
-      case 'Enter':
-        onConfirm(values)
-        break
-      case 'Escape':
+    switch (true) {
+      case e.key === 'Escape':
         onCancel()
+        break
+      // a focused button keeps its own action (Enter clicks it)
+      case e.key === 'Enter' && !(e.target instanceof HTMLButtonElement):
+        onConfirm(values)
         break
     }
   }
@@ -152,6 +153,7 @@ export function useConnectPrompt(
   onAdd: (change: ViewChange.AddRelation | ViewChange.AddDynamicStep) => void,
 ): {
   open: (pending: Pending) => void
+  close: () => void
   prompt: ReactNode
 } {
   const [pending, setPending] = useState<Pending | null>(null)
@@ -172,5 +174,5 @@ export function useConnectPrompt(
       />
     </PromptPortal>
   )
-  return { open: setPending, prompt }
+  return { open: setPending, close: () => setPending(null), prompt }
 }
