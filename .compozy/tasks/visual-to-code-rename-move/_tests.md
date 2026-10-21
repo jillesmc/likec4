@@ -19,26 +19,27 @@ Canonical test contract. Companion to `_spec.md`, derived from `_user_stories.md
 
 ## Coverage Matrix
 
-| Source                    | Behavior                                                   | Unit           | Integration    | E2E             |
-| ------------------------- | ---------------------------------------------------------- | -------------- | -------------- | --------------- |
-| US-001 AC-3, rule 3       | definition and every reference kind renamed, rest intact   | UT-001–UT-009  | IT-001         | E2E-001         |
-| US-001 AC-6               | `this` / `it` untouched                                    | UT-010         | —              | —               |
-| US-001 EC-4, US-002 AC-2  | unnamed instances follow / get a name                      | UT-011, UT-012 | —              | —               |
-| US-001 AC-4, rule 9       | snapshots rewritten, no drift                              | UT-040, UT-041 | IT-002         | E2E-001         |
-| US-001 EC-5, rule 10      | unnamed view id change: snapshot moved, result `viewId`    | UT-042         | IT-003         | —               |
-| US-001 EC-1, rule 4       | same name no-op; invalid / taken names                     | UT-013–UT-015  | —              | —               |
-| US-001 AC-1/2/5, EC-2/3/6 | F2, toolbar, prompt, Esc, gating                           | UT-060–UT-064  | —              | E2E-001         |
-| US-002 AC-1, EC-1         | deployment node rename                                     | UT-016, UT-017 | —              | —               |
-| US-003 AC-2/3, EC-1/2     | move placement, comments, re-indent, other file, top level | UT-020–UT-024  | IT-004         | E2E-003         |
-| US-003 AC-2/4             | references outside / inside the moved block rewritten      | UT-025, UT-026 | —              | E2E-003         |
-| US-003 AC-5               | include appended when the moved element would be hidden    | UT-027         | —              | —               |
-| US-003 AC-1, EC-4         | move list contents and gating                              | UT-065, UT-066 | —              | E2E-003         |
-| US-003 EC-3, US-004 AC-3  | collision, invalid parent                                  | UT-028, UT-029 | —              | —               |
-| US-004 AC-2, rule 8       | capture refused, files and snapshots unchanged             | —              | IT-005         | —               |
-| US-005, rule 11           | undo / redo restores files and snapshots; stale-undo       | —              | IT-006, IT-007 | E2E-002         |
-| US-006                    | LSP prepareRename / rename                                 | UT-050–UT-053  | —              | manual (VSCode) |
-| US-007                    | imports and importing references renamed; move refused     | UT-030, UT-031 | —              | —               |
-| US-008                    | ops and `viewId` through RPC                               | —              | IT-003         | —               |
+| Source                    | Behavior                                                                          | Unit           | Integration    | E2E             |
+| ------------------------- | --------------------------------------------------------------------------------- | -------------- | -------------- | --------------- |
+| US-001 AC-3, rule 3       | definition and every reference kind renamed, rest intact                          | UT-001–UT-009  | IT-001         | E2E-001         |
+| US-001 AC-6               | `this` / `it` untouched                                                           | UT-010         | —              | —               |
+| US-001 EC-4, US-002 AC-2  | unnamed instances follow / get a name                                             | UT-011, UT-012 | —              | —               |
+| US-001 AC-4, rule 9       | snapshots rewritten, no drift                                                     | UT-040, UT-041 | IT-002         | E2E-001         |
+| US-001 EC-5, rule 10      | unnamed view id change: snapshot moved, result `viewId`                           | UT-042         | IT-003         | —               |
+| US-001 EC-1, rule 4       | same name no-op; invalid / taken names                                            | UT-013–UT-015  | —              | —               |
+| US-001 AC-1/2/5, EC-2/3/6 | F2, toolbar, prompt, Esc, gating                                                  | UT-060–UT-064  | —              | E2E-001         |
+| US-002 AC-1, EC-1         | deployment node rename                                                            | UT-016, UT-017 | —              | —               |
+| US-003 AC-2/3, EC-1/2     | move placement, comments, re-indent, other file, top level                        | UT-020–UT-024  | IT-004         | E2E-003         |
+| US-003 AC-2/4             | references outside / inside the moved block rewritten                             | UT-025, UT-026 | —              | E2E-003         |
+| US-003 AC-5               | include appended when the moved element would be hidden                           | UT-027         | —              | —               |
+| US-003 AC-6, rule 9       | move: snapshots follow (descendants too), drift only when the new parent is shown | —              | review 001-003 | —               |
+| US-003 AC-1, EC-4         | move list contents and gating                                                     | UT-065, UT-066 | —              | E2E-003         |
+| US-003 EC-3, US-004 AC-3  | collision, invalid parent                                                         | UT-028, UT-029 | —              | —               |
+| US-004 AC-2, rule 8       | capture refused, files and snapshots unchanged                                    | —              | IT-005         | —               |
+| US-005, rule 11           | undo / redo restores files and snapshots; stale-undo                              | —              | IT-006, IT-007 | E2E-002         |
+| US-006                    | LSP prepareRename / rename                                                        | UT-050–UT-053  | —              | manual (VSCode) |
+| US-007                    | imports and importing references renamed; move refused                            | UT-030, UT-031 | —              | —               |
+| US-008                    | ops and `viewId` through RPC                                                      | —              | IT-003         | —               |
 
 ## Unit Cases
 

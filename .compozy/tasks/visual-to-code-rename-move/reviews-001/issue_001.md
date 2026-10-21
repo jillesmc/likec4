@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-21T20:27:26Z
-status: pending
+status: valid
 file: packages/language-server/src/model-change/moveElement.ts
 line: 165
 severity: medium
@@ -36,5 +36,13 @@ elements like the ones inside the block. Add a moveElement spec row with a child
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Confirmed with a throwaway spec before the fix (`invalid-result`, nothing
+  written). Root cause: the moved subtree was the AST of the definition, so children declared in
+  `extend` blocks elsewhere changed FQN without their references being rewritten. Fix: the subtree is
+  built from the model (every element whose FQN is the moved one or below it) and resolved to its AST
+  nodes through the FQN index; the `extend` paths and other chains to those elements are rewritten to
+  the new full FQN like any outside reference.
+- Fix: `packages/language-server/src/model-change/moveElement.ts`. Regression: `moveElement.spec.ts`
+  "review 001-001" (`extend billing.db`, `customer -> billing.db.table`); it failed before the fix.
+  Gates: move spec 12 passed, language-server suite, `pnpm typecheck`.

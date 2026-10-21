@@ -3,7 +3,7 @@ provider: manual
 pr:
 round: 1
 round_created_at: 2026-10-21T20:27:26Z
-status: pending
+status: valid
 file: packages/language-server/src/model-change/moveElement.spec.ts
 line: 1
 severity: low
@@ -30,5 +30,11 @@ reported when it is; add the row to the `_tests.md` coverage matrix.
 
 ## Triage
 
-- Decision: `UNREVIEWED`
-- Notes:
+- Decision: `VALID`
+- Notes: Valid test gap: no spec moved an element in a workspace with snapshots, and
+  `_tests.md` had no row for US-003 AC-6. The behaviour was already correct (verified with a
+  throwaway spec during the review).
+- Fix: `moveElement.spec.ts` "review 001-003": two views with manual layouts; after moving `cloud.db`
+  under `billing` both snapshots hold `billing.db` and `billing.db.table`; the view that does not show
+  the new parent reports no drift, the one that shows it reports `nodes-drift` (rule 9). `_tests.md`
+  coverage matrix gains the US-003 AC-6 row.
