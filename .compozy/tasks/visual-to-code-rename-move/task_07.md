@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: 'Task 07: F2 rename in the .c4 editor'
 type: backend
 complexity: medium
@@ -27,8 +27,8 @@ deployment nodes and instances correctly (owner Q3).
 
 ## Subtasks
 
-- [ ] 7.1 Server: `LikeC4RenameProvider` (`prepareRename`, `rename`) delegating to `planRename`.
-- [ ] 7.2 Server: bindings in `module.ts` and the export in `lsp/index.ts`.
+- [x] 7.1 Server: `LikeC4RenameProvider` (`prepareRename`, `rename`) delegating to `planRename`.
+- [x] 7.2 Server: bindings in `module.ts` and the export in `lsp/index.ts`.
 
 ## Implementation Details
 
@@ -40,4 +40,17 @@ deployment nodes and instances correctly (owner Q3).
 
 ## Tests
 
-- [ ] UT-050, UT-051, UT-052, UT-053
+- [x] UT-050, UT-051, UT-052, UT-053
+
+## Completion Notes (2026-10-21)
+
+- Langium's `DefaultRenameProvider` was active (the binding in `module.ts` only commented out the
+  LikeC4 override): F2 in the `.c4` editor already offered a rename that rewrote `this`/`it` and
+  knew nothing about FQNs. It is now replaced by `LikeC4RenameProvider`.
+- `prepareRename`: the leaf at the cursor (`CstUtils.findDeclarationNodeAtOffset`) is resolved with
+  `References.findDeclarations`; only elements, deployment nodes and instances, and only when the
+  leaf spells their name (`this`/`it` refused). `rename` reuses the canvas handler `renameElement`
+  (same planner and preconditions) and returns its edits as one `WorkspaceEdit`; a
+  `ModelChangeError` becomes a `ResponseError` with the same message.
+- Verification: `lsp/RenameProvider.spec.ts` (UT-050 – UT-053) 4 passed; language-server 969
+  passed; `pnpm typecheck` 26/26. F2 in Code - OSS is recorded by task 08.
