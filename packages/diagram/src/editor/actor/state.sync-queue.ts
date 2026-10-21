@@ -340,7 +340,12 @@ const process = machine.createStateConfig({
                 },
               )
             }
-            if (!event.output.waitForViewSync) {
+            // The view was renamed: show it under its new id, the old one will not be synced
+            const renamedView = event.output.renamedView
+            if (renamedView) {
+              enqueue.sendTo(typedSystem.diagramActor, { type: 'navigate.to', viewId: renamedView })
+              enqueue.raise({ type: 'view.synched' })
+            } else if (!event.output.waitForViewSync) {
               enqueue.raise({ type: 'view.synched' })
             }
           }),

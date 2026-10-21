@@ -69,6 +69,10 @@ export namespace EditorCalls {
        * Items created by the applied changes
        */
       created: Array<{ change: t.ViewChange; id: string }>
+      /**
+       * New id of the view, when a change renamed it
+       */
+      renamedView: t.ViewId | null
       waitForViewSync: boolean
     }
   }

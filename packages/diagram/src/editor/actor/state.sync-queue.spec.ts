@@ -94,6 +94,7 @@ describe('editor sync queue', () => {
       failed: [],
       undoable: [],
       created: [],
+      renamedView: null,
       waitForViewSync: false,
     }))
     const actor = createTestActor(executeChange)
@@ -116,6 +117,7 @@ describe('editor sync queue', () => {
       failed: [],
       undoable: [],
       created: [],
+      renamedView: null,
       waitForViewSync: true,
     }))
     const actor = createTestActor(executeChange)
@@ -159,6 +161,7 @@ describe('editor sync queue', () => {
           failed: [],
           undoable: [],
           created: [],
+          renamedView: null,
           waitForViewSync: false,
         }
       })
@@ -183,6 +186,7 @@ describe('editor sync queue', () => {
         failed: [],
         undoable: [],
         created: [],
+        renamedView: null,
         waitForViewSync: true,
       }))
       const actor = createTestActor(executeChange)
@@ -212,6 +216,7 @@ describe('editor sync queue', () => {
         failed: [],
         undoable: [],
         created: [],
+        renamedView: null,
         waitForViewSync: false,
       }))
       const { actor, applyLatest, stop } = createWithManualLayoutDiagram(execute)
@@ -232,6 +237,7 @@ describe('editor sync queue', () => {
         failed: input.changes.map(change => ({ change, error: '[not-found] Element "b" not found' })),
         undoable: [],
         created: [],
+        renamedView: null,
         waitForViewSync: false,
       }))
       const actor = createTestActor(executeChange)
@@ -256,6 +262,7 @@ describe('editor sync queue', () => {
       failed: [],
       undoable: [],
       created: [],
+      renamedView: null,
       waitForViewSync: false,
     }))
     actor.send({ type: 'error.show', message: 'Drop "Instance" on a deployment node' })
@@ -271,6 +278,7 @@ describe('editor sync queue', () => {
       failed: [],
       undoable: input.changes.map(c => c.op === 'change-title' ? `h-${c.title}` : undefined),
       created: [],
+      renamedView: null,
       waitForViewSync: false,
     }))
     const idle = (snapshot: { hasTag: (tag: 'busy') => boolean }) => !snapshot.hasTag('busy')
@@ -342,5 +350,43 @@ describe('editor sync queue', () => {
       expect(directions).toEqual(['undo:h-B', 'undo:h-A'])
       actor.stop()
     })
+  })
+
+  it('UT-064: a change that renamed the view shows the view under its new id', async () => {
+    const received = [] as Array<{ type: string; viewId?: string }>
+    const diagram = fromTransition((state, event: { type: string; viewId?: string }) => {
+      received.push(event)
+      return state
+    }, {})
+    const executeChange = vi.fn<EditorCalls.ExecuteChange>(async ({ input }) => ({
+      requested: input.changes,
+      applied: input.changes,
+      failed: [],
+      undoable: [],
+      created: [],
+      renamedView: scalar.ViewId('renamed'),
+      waitForViewSync: true,
+    }))
+    const parent = createActor(createMachine({
+      invoke: [
+        { src: diagram, systemId: 'diagram' },
+        {
+          id: 'editor',
+          systemId: 'editor',
+          src: editorActorLogic.provide({ actors: { executeChange: fromPromise(executeChange) } }),
+          input: { viewId: scalar.ViewId('test') },
+        },
+      ],
+    }))
+    parent.start()
+    const actor = parent.system.get('editor') as ReturnType<typeof createTestActor>
+
+    actor.send({ type: 'change.view', change })
+    // the old view will not be synced: the editor does not wait for it
+    await waitFor(actor, snapshot => executeChange.mock.calls.length === 1 && !snapshot.hasTag('busy'), {
+      timeout: 500,
+    })
+    expect(received).toContainEqual({ type: 'navigate.to', viewId: 'renamed' })
+    parent.stop()
   })
 })

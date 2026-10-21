@@ -54,6 +54,7 @@ export function useEditorActorLogic(): EditorActorLogic & {
       const failed = [] as Array<{ change: (typeof input.changes)[number]; error: string }>
       const undoable = [] as Array<string | undefined>
       const created = [] as Array<{ change: (typeof input.changes)[number]; id: string }>
+      let renamedView: (typeof input)['viewId'] | null = null
       let waitForViewSync = false
       for (const change of input.changes) {
         try {
@@ -66,13 +67,16 @@ export function useEditorActorLogic(): EditorActorLogic & {
           if (result?.created) {
             created.push({ change, id: result.created })
           }
+          if (result?.viewId && result.viewId !== input.viewId) {
+            renamedView = result.viewId
+          }
         } catch (error) {
           console.error('Failed to execute change', { change, error })
           failed.push({ change, error: error instanceof Error ? error.message : String(error) })
           waitForViewSync ||= shouldWaitForViewSync()
         }
       }
-      return { requested: input.changes, applied, failed, undoable, created, waitForViewSync }
+      return { requested: input.changes, applied, failed, undoable, created, renamedView, waitForViewSync }
     },
   )
 

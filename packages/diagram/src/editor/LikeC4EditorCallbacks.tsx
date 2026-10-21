@@ -21,6 +21,11 @@ export interface LikeC4EditorChangeResult {
    * Fqn of the item created by the change (used to keep it where it was dropped)
    */
   created?: string | undefined
+  /**
+   * New id of the view, when the change renamed it (an unnamed `view of x` after renaming `x`):
+   * the diagram navigates to it
+   */
+  viewId?: t.ViewId | undefined
 }
 
 export function shouldWaitForViewSync(

@@ -53,7 +53,7 @@ export type IdentifierField = {
  * Enter accepts it, typing in the field (its text is selected on focus) replaces it.
  */
 export function TitlePrompt(
-  { label, initialTitle, confirmLabel, options, identifier, allowEmpty = false, onConfirm, onCancel }: {
+  { label, initialTitle, confirmLabel, options, identifier, allowEmpty = false, validate, onConfirm, onCancel }: {
     label: string
     initialTitle: string
     confirmLabel: string
@@ -63,6 +63,10 @@ export function TitlePrompt(
      * An empty value is accepted (e.g. removes the title of a relation)
      */
     allowEmpty?: boolean
+    /**
+     * Why the value can't be used (shown, and Enter does nothing), null when it can
+     */
+    validate?: (value: string) => string | null
     onConfirm: (title: string, name?: string) => void
     onCancel: () => void
   },
@@ -73,11 +77,13 @@ export function TitlePrompt(
   const [listId] = useState(() => `likec4-title-prompt-options-${++promptSeq}`)
   const name = identifier ? shownIdentifier(typedName, identifier.suggest(title.trim())) : undefined
   const nameError = identifier && name !== undefined ? identifierError(name, identifier.taken) : null
-  const isValid = isValidValue(title, options, allowEmpty) && nameError === null
+  const valueError = validate?.(title.trim()) ?? null
+  const error = valueError ?? nameError
+  const isValid = isValidValue(title, options, allowEmpty) && error === null
   const confirm = () => onConfirm(title.trim(), name)
   const onKeyDown = (e: KeyboardEvent) => {
     e.stopPropagation()
-    const action = titleKeyAction(e.key, title, options, nameError === null, allowEmpty)
+    const action = titleKeyAction(e.key, title, options, error === null, allowEmpty)
     if (action === 'confirm') confirm()
     if (action === 'cancel') onCancel()
   }
@@ -110,7 +116,9 @@ export function TitlePrompt(
           width: 180,
           fontSize: 13,
           padding: '2px 6px',
-          outlineColor: isValidValue(title, options, allowEmpty) ? undefined : 'var(--mantine-color-red-6)',
+          outlineColor: isValidValue(title, options, allowEmpty) && !valueError
+            ? undefined
+            : 'var(--mantine-color-red-6)',
         }}
       />
       {identifier && (
@@ -131,9 +139,9 @@ export function TitlePrompt(
           }}
         />
       )}
-      {nameError && (
+      {error && (
         <span role="alert" style={{ alignSelf: 'center', fontSize: 12, color: 'var(--mantine-color-red-6)' }}>
-          {nameError}
+          {error}
         </span>
       )}
       {options && (
