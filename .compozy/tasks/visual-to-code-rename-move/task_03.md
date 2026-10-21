@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: 'Task 03: Rename deployment nodes and instances'
 type: feature
 complexity: medium
@@ -28,8 +28,8 @@ Extend the planner and the canvas rename to deployment nodes and deployed instan
 
 ## Subtasks
 
-- [ ] 3.1 Server: deployment branch of `planRename` and of the `renameElement.ts` preconditions.
-- [ ] 3.2 Diagram: rename button and F2 on deployment node / instance nodes.
+- [x] 3.1 Server: deployment branch of `planRename` and of the `renameElement.ts` preconditions.
+- [x] 3.2 Diagram: rename button and F2 on deployment node / instance nodes.
 
 ## Implementation Details
 
@@ -42,5 +42,21 @@ Extend the planner and the canvas rename to deployment nodes and deployed instan
 
 ## Tests
 
-- [ ] UT-012 — renaming an unnamed instance inserts `name = `
-- [ ] UT-016, UT-017 — deployment node rename; deployment `name-collision`
+- [x] UT-012 — renaming an unnamed instance inserts `name = `
+- [x] UT-016, UT-017 — deployment node rename; deployment `name-collision`
+
+## Completion Notes (2026-10-20)
+
+- Core: `RenameElement.target` is `{ element } | { deployment }`.
+- Server: `_references.ts` shares the reference renamer between elements and deployment items;
+  `planDeploymentRename` renames a deployment node or a named instance, and inserts `name = ` before
+  `instanceOf` for an unnamed one (its name node is the element reference, which must not change).
+  `renameElement.ts` checks the collision on the deployment FQN; renames go to the deployment map
+  (guard and snapshots of deployment views).
+- Diagram: `renameTargetOf` returns the deployment item for `deployment` / `compound-deployment`
+  nodes; the prompt checks the names of the deployment siblings; the rename button is in the
+  deployment and compound-deployment toolbars.
+- Verification: language-server rename spec 24 passed (UT-012, UT-016 node + named instance,
+  UT-017); diagram 236 passed; core and package typechecks clean. Manual check in `likec4 start`
+  (deployment view `prod`): F2 on `prod`, `production` written to the definition and to
+  `include production, production.**`, the node shown with the new id.

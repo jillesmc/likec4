@@ -178,6 +178,9 @@ Answered by the owner on 2026-10-20:
   rule 6.
 - **Q7 — where the actions live**: in the node toolbar, next to "Delete from model" (no new
   context menu) → `_uiux.md`.
+- **Q8 — F2 after clicking a node in the VSCode preview**: the click reveals the source and moves
+  the focus to the `.c4` editor (existing behaviour, kept). F2 there is the text rename of the same
+  element (rule 12); the toolbar button works in the preview.
 
 ## Open Questions
 

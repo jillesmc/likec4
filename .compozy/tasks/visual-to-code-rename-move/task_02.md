@@ -77,7 +77,8 @@ sends `rename-element`. With task 01 this solves the rename half of the Motivati
 - VSCode finding (not changed here): clicking a node in the preview reveals its source and moves
   the focus to the `.c4` editor (existing `locate`, `preserveFocus: false`), so F2 right after a
   click goes to the text editor (text rename is task 07). The toolbar button works; F2 works when
-  the canvas keeps the focus (browser). Reported to the owner.
+  the canvas keeps the focus (browser). Owner decision (2026-10-20): keep it; F2 in the editor
+  renames the same element once task 07 is done (`_spec.md` Q8).
 - E2E: fixture `rename.c4` (a view referencing `customer` from another file); E2E-001 (F2, taken name
   refused, both files, snapshot, position kept, no drift), E2E-002 (toolbar, Ctrl+Z / Ctrl+Shift+Z
   with the layout). E2E-002 waits for the editor's 500 ms sync window after an undo before redoing.
