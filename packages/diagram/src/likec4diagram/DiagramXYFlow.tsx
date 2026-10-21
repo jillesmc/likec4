@@ -30,6 +30,7 @@ import {
   innermostNode,
   isRenameHotkey,
   MANUAL_LAYOUT_NOTICE,
+  MoveProvider,
   relationshipKinds,
   relationTitleTargetOf,
   removeStepChangesOf,
@@ -39,6 +40,7 @@ import {
   useCanvasDrop,
   useConnectPrompt,
   useManualLayoutToast,
+  useMovePrompt,
   useRenamePrompt,
   useTitleEditing,
 } from '../editor-ui'
@@ -238,6 +240,9 @@ export function LikeC4DiagramXYFlow({
   const renamePrompt = useRenamePrompt(change => {
     diagram.editorActor().send({ type: 'change.view', change })
   })
+  const movePrompt = useMovePrompt(change => {
+    diagram.editorActor().send({ type: 'change.view', change })
+  })
   // F2 renames the selected element
   useEffect(() => {
     if (!titlesEditable) {
@@ -269,6 +274,7 @@ export function LikeC4DiagramXYFlow({
     canvasDrop.close()
     titleEditing.close()
     renamePrompt.close()
+    movePrompt.close()
   })
   useEffect(() => closePrompts(), [viewId, closePrompts])
   nodesDraggable = resolveInteractionEnabled(nodesDraggable, nodesDraggableOverride, isEditorBusy)
@@ -338,194 +344,201 @@ export function LikeC4DiagramXYFlow({
 
   return (
     <RenameProvider value={titlesEditable ? renamePrompt.rename : null}>
-      <BaseXYFlow<Types.AnyNode, Types.AnyEdge>
-        nodes={nodes}
-        edges={edges}
-        className={cx(initialized ? 'initialized' : 'not-initialized')}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={useCallbackRef((changes) => {
-          diagram.send({ type: 'xyflow.applyChanges', nodes: changes })
-        })}
-        onEdgesChange={useCallbackRef((changes) => {
-          diagram.send({ type: 'xyflow.applyChanges', edges: changes })
-        })}
-        background={initialized ? background : 'transparent'}
-        // Fitview is handled in onInit
-        fitView={false}
-        onNodeClick={useCallbackRef((e, node) => {
-          if (e.isPropagationStopped()) {
-            return
-          }
-          e.stopPropagation()
-          diagram.send({ type: 'xyflow.nodeClick', node })
-          onNodeClick?.(diagram.findDiagramNode(node.id as NodeId)!, e)
-        })}
-        onEdgeClick={useCallbackRef((e, edge) => {
-          if (e.isPropagationStopped()) {
-            return
-          }
-          e.stopPropagation()
-          diagram.send({ type: 'xyflow.edgeClick', edge })
-          onEdgeClick?.(diagram.findDiagramEdge(edge.id as EdgeId)!, e)
-        })}
-        onEdgeDoubleClick={useCallbackRef((e, edge) => {
-          if (e.isPropagationStopped()) {
-            return
-          }
-          e.stopPropagation()
-          // Edit the title of the relation (element views, edges of a single relation)
-          const relation = titlesEditable && viewType === 'element'
-            ? relationTitleTargetOf(diagram.findDiagramEdge(edge.id as EdgeId)?.relations ?? [])
-            : null
-          if (relation) {
-            // the title of the relation in the model: the label of the edge may come from the view
-            let title = ''
-            switch (true) {
-              case !!likec4model:
-                title = likec4model.findRelationship(relation, 'model')?.title ?? ''
-                break
-              case typeof edge.data.label === 'string':
-                title = edge.data.label
-                break
+      <MoveProvider value={titlesEditable && likec4model ? movePrompt.move : null}>
+        <BaseXYFlow<Types.AnyNode, Types.AnyEdge>
+          nodes={nodes}
+          edges={edges}
+          className={cx(initialized ? 'initialized' : 'not-initialized')}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={useCallbackRef((changes) => {
+            diagram.send({ type: 'xyflow.applyChanges', nodes: changes })
+          })}
+          onEdgesChange={useCallbackRef((changes) => {
+            diagram.send({ type: 'xyflow.applyChanges', edges: changes })
+          })}
+          background={initialized ? background : 'transparent'}
+          // Fitview is handled in onInit
+          fitView={false}
+          onNodeClick={useCallbackRef((e, node) => {
+            if (e.isPropagationStopped()) {
+              return
             }
-            titleEditing.editRelationTitle(relation, title, xyflow.screenToFlowPosition({ x: e.clientX, y: e.clientY }))
-            return
-          }
-          diagram.send({ type: 'xyflow.edgeDoubleClick', edge })
-        })}
-        deleteKeyCode={DELETE_KEYS}
-        onBeforeDelete={useCallbackRef(async ({ nodes, edges }) => {
-          // Deleting on the canvas excludes items from this view (the model is not changed).
-          // Items disappear once the view is synced, so nothing is removed locally.
-          if (!enableReadOnly) {
-            // In dynamic views (no `exclude` there), deleting a step removes it from the view
-            const changes = viewType === 'dynamic'
-              ? removeStepChangesOf(edges)
-              : [excludeChangeOf(viewType, nodes, edges, id => xyflow.getNode(id))].filter(c => c !== null)
-            for (const change of changes) {
-              diagram.editorActor().send({ type: 'change.view', change })
+            e.stopPropagation()
+            diagram.send({ type: 'xyflow.nodeClick', node })
+            onNodeClick?.(diagram.findDiagramNode(node.id as NodeId)!, e)
+          })}
+          onEdgeClick={useCallbackRef((e, edge) => {
+            if (e.isPropagationStopped()) {
+              return
             }
-          }
-          return false
-        })}
-        nodesConnectable={nodesConnectable}
-        {...titlesEditable && {
-          onNodeDoubleClick: titleEditing.onNodeDoubleClick,
-        }}
-        {...palette && {
-          onDragOver: canvasDrop.onDragOver,
-          onDrop: canvasDrop.onDrop,
-        }}
-        onConnectEnd={useCallbackRef((event, connection) => {
-          const pointer = 'changedTouches' in event ? event.changedTouches[0] : event
-          if (!nodesConnectable || !connection.fromNode || !pointer) {
-            return
-          }
-          const released = xyflow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY })
-          // Released outside a handle: take the innermost node under the pointer
-          const toNode = connection.toNode
-            ?? innermostNode(xyflow.getIntersectingNodes({ ...released, width: 1, height: 1 }))
-          const change = resolveConnection(connection.fromNode, toNode, viewType)
-          // Ask for the details first: title, kind and technology (relations), title and position (steps)
-          switch (change?.op) {
-            case 'add-relation':
-              connectPrompt.open({ change, position: released })
-              break
-            case 'add-dynamic-step': {
-              const titleOf = (id: string) => {
-                const title = xyflow.getNode(id)?.data.title
-                return typeof title === 'string' ? title : id
+            e.stopPropagation()
+            diagram.send({ type: 'xyflow.edgeClick', edge })
+            onEdgeClick?.(diagram.findDiagramEdge(edge.id as EdgeId)!, e)
+          })}
+          onEdgeDoubleClick={useCallbackRef((e, edge) => {
+            if (e.isPropagationStopped()) {
+              return
+            }
+            e.stopPropagation()
+            // Edit the title of the relation (element views, edges of a single relation)
+            const relation = titlesEditable && viewType === 'element'
+              ? relationTitleTargetOf(diagram.findDiagramEdge(edge.id as EdgeId)?.relations ?? [])
+              : null
+            if (relation) {
+              // the title of the relation in the model: the label of the edge may come from the view
+              let title = ''
+              switch (true) {
+                case !!likec4model:
+                  title = likec4model.findRelationship(relation, 'model')?.title ?? ''
+                  break
+                case typeof edge.data.label === 'string':
+                  title = edge.data.label
+                  break
               }
-              connectPrompt.open({ change, position: released, positions: stepPositions(xyflow.getEdges(), titleOf) })
-              break
+              titleEditing.editRelationTitle(
+                relation,
+                title,
+                xyflow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+              )
+              return
             }
-          }
-        })}
-        onPaneClick={useCallbackRef((e) => {
-          e.stopPropagation()
-          diagram.send({ type: 'xyflow.paneClick' })
-          onCanvasClick?.(e as any)
-        })}
-        onDoubleClick={useCallbackRef(e => {
-          e.stopPropagation()
-          e.preventDefault()
-          diagram.send({ type: 'xyflow.paneDblClick' })
-          onCanvasDblClick?.(e as any)
-        })}
-        onNodeMouseEnter={useCallbackRef((event, node) => {
-          event.stopPropagation()
-          diagram.send({ type: 'xyflow.nodeMouseEnter', node })
-        })}
-        onNodeMouseLeave={useCallbackRef((event, node) => {
-          event.stopPropagation()
-          diagram.send({ type: 'xyflow.nodeMouseLeave', node })
-        })}
-        onEdgeMouseEnter={useCallbackRef((event, edge) => {
-          event.stopPropagation()
-          diagram.send({ type: 'xyflow.edgeMouseEnter', edge, event })
-        })}
-        onEdgeMouseLeave={useCallbackRef((event, edge) => {
-          event.stopPropagation()
-          diagram.send({ type: 'xyflow.edgeMouseLeave', edge, event })
-        })}
-        onMove={onMove}
-        onMoveEnd={onMoveEnd}
-        onInit={useCallbackRef((instance) => {
-          diagram.send({ type: 'xyflow.init', instance })
-        })}
-        onNodeContextMenu={useCallbackRef((event, node) => {
-          const diagramNode = diagram.findDiagramNode(node.data.id)
-          if (diagramNode) {
-            onNodeContextMenu?.(diagramNode, event)
-          }
-        })}
-        onEdgeContextMenu={useCallbackRef((event, edge) => {
-          const diagramEdge = nonNullable(
-            diagram.findDiagramEdge(edge.id as EdgeId),
-            `diagramEdge ${edge.id} not found`,
-          )
-          onEdgeContextMenu?.(diagramEdge, event)
-        })}
-        {...onCanvasContextMenu && {
-          onPaneContextMenu: onCanvasContextMenu as ((event: ReactMouseEvent | MouseEvent) => void),
-        }}
-        {...enableFitView && {
-          onViewportResize,
-        }}
-        nodesFocusable
-        edgesFocusable
-        elevateEdgesOnSelect={!enableReadOnly}
-        zIndexMode="manual"
-        {...(nodesDraggable && (isGraphVariant ? graphForceHandlers : layoutConstraints))}
-        {...props}
-        {...safeReactFlowProps}
-        nodesDraggable={nodesDraggable}
-        nodesSelectable={nodesSelectable}>
-        {enableControls && (
-          <Controls
-            fitViewPadding={props.fitViewPadding}
-            minZoom={props.minZoom}
-            maxZoom={props.maxZoom}
-          />
-        )}
-        {itemsCreatable && <Ghosts />}
-        {palette && (
-          <Panel position="center-right">
-            <ElementPalette
-              title={palette.title}
-              items={palette.items}
-              emptyMessage={palette.emptyMessage}
-              notice={isManualLayout ? MANUAL_LAYOUT_NOTICE : undefined} />
-          </Panel>
-        )}
-        {palette && canvasDrop.popover}
-        {palette && manualLayoutToast.toast}
-        {titlesEditable && titleEditing.editor}
-        {nodesConnectable && connectPrompt.prompt}
-        {titlesEditable && renamePrompt.prompt}
-        {children}
-      </BaseXYFlow>
+            diagram.send({ type: 'xyflow.edgeDoubleClick', edge })
+          })}
+          deleteKeyCode={DELETE_KEYS}
+          onBeforeDelete={useCallbackRef(async ({ nodes, edges }) => {
+            // Deleting on the canvas excludes items from this view (the model is not changed).
+            // Items disappear once the view is synced, so nothing is removed locally.
+            if (!enableReadOnly) {
+              // In dynamic views (no `exclude` there), deleting a step removes it from the view
+              const changes = viewType === 'dynamic'
+                ? removeStepChangesOf(edges)
+                : [excludeChangeOf(viewType, nodes, edges, id => xyflow.getNode(id))].filter(c => c !== null)
+              for (const change of changes) {
+                diagram.editorActor().send({ type: 'change.view', change })
+              }
+            }
+            return false
+          })}
+          nodesConnectable={nodesConnectable}
+          {...titlesEditable && {
+            onNodeDoubleClick: titleEditing.onNodeDoubleClick,
+          }}
+          {...palette && {
+            onDragOver: canvasDrop.onDragOver,
+            onDrop: canvasDrop.onDrop,
+          }}
+          onConnectEnd={useCallbackRef((event, connection) => {
+            const pointer = 'changedTouches' in event ? event.changedTouches[0] : event
+            if (!nodesConnectable || !connection.fromNode || !pointer) {
+              return
+            }
+            const released = xyflow.screenToFlowPosition({ x: pointer.clientX, y: pointer.clientY })
+            // Released outside a handle: take the innermost node under the pointer
+            const toNode = connection.toNode
+              ?? innermostNode(xyflow.getIntersectingNodes({ ...released, width: 1, height: 1 }))
+            const change = resolveConnection(connection.fromNode, toNode, viewType)
+            // Ask for the details first: title, kind and technology (relations), title and position (steps)
+            switch (change?.op) {
+              case 'add-relation':
+                connectPrompt.open({ change, position: released })
+                break
+              case 'add-dynamic-step': {
+                const titleOf = (id: string) => {
+                  const title = xyflow.getNode(id)?.data.title
+                  return typeof title === 'string' ? title : id
+                }
+                connectPrompt.open({ change, position: released, positions: stepPositions(xyflow.getEdges(), titleOf) })
+                break
+              }
+            }
+          })}
+          onPaneClick={useCallbackRef((e) => {
+            e.stopPropagation()
+            diagram.send({ type: 'xyflow.paneClick' })
+            onCanvasClick?.(e as any)
+          })}
+          onDoubleClick={useCallbackRef(e => {
+            e.stopPropagation()
+            e.preventDefault()
+            diagram.send({ type: 'xyflow.paneDblClick' })
+            onCanvasDblClick?.(e as any)
+          })}
+          onNodeMouseEnter={useCallbackRef((event, node) => {
+            event.stopPropagation()
+            diagram.send({ type: 'xyflow.nodeMouseEnter', node })
+          })}
+          onNodeMouseLeave={useCallbackRef((event, node) => {
+            event.stopPropagation()
+            diagram.send({ type: 'xyflow.nodeMouseLeave', node })
+          })}
+          onEdgeMouseEnter={useCallbackRef((event, edge) => {
+            event.stopPropagation()
+            diagram.send({ type: 'xyflow.edgeMouseEnter', edge, event })
+          })}
+          onEdgeMouseLeave={useCallbackRef((event, edge) => {
+            event.stopPropagation()
+            diagram.send({ type: 'xyflow.edgeMouseLeave', edge, event })
+          })}
+          onMove={onMove}
+          onMoveEnd={onMoveEnd}
+          onInit={useCallbackRef((instance) => {
+            diagram.send({ type: 'xyflow.init', instance })
+          })}
+          onNodeContextMenu={useCallbackRef((event, node) => {
+            const diagramNode = diagram.findDiagramNode(node.data.id)
+            if (diagramNode) {
+              onNodeContextMenu?.(diagramNode, event)
+            }
+          })}
+          onEdgeContextMenu={useCallbackRef((event, edge) => {
+            const diagramEdge = nonNullable(
+              diagram.findDiagramEdge(edge.id as EdgeId),
+              `diagramEdge ${edge.id} not found`,
+            )
+            onEdgeContextMenu?.(diagramEdge, event)
+          })}
+          {...onCanvasContextMenu && {
+            onPaneContextMenu: onCanvasContextMenu as ((event: ReactMouseEvent | MouseEvent) => void),
+          }}
+          {...enableFitView && {
+            onViewportResize,
+          }}
+          nodesFocusable
+          edgesFocusable
+          elevateEdgesOnSelect={!enableReadOnly}
+          zIndexMode="manual"
+          {...(nodesDraggable && (isGraphVariant ? graphForceHandlers : layoutConstraints))}
+          {...props}
+          {...safeReactFlowProps}
+          nodesDraggable={nodesDraggable}
+          nodesSelectable={nodesSelectable}>
+          {enableControls && (
+            <Controls
+              fitViewPadding={props.fitViewPadding}
+              minZoom={props.minZoom}
+              maxZoom={props.maxZoom}
+            />
+          )}
+          {itemsCreatable && <Ghosts />}
+          {palette && (
+            <Panel position="center-right">
+              <ElementPalette
+                title={palette.title}
+                items={palette.items}
+                emptyMessage={palette.emptyMessage}
+                notice={isManualLayout ? MANUAL_LAYOUT_NOTICE : undefined} />
+            </Panel>
+          )}
+          {palette && canvasDrop.popover}
+          {palette && manualLayoutToast.toast}
+          {titlesEditable && titleEditing.editor}
+          {nodesConnectable && connectPrompt.prompt}
+          {titlesEditable && renamePrompt.prompt}
+          {titlesEditable && movePrompt.prompt}
+          {children}
+        </BaseXYFlow>
+      </MoveProvider>
     </RenameProvider>
   )
 }

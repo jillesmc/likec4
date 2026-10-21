@@ -1,5 +1,5 @@
 import { useEnabledFeatures } from '../../../../context/DiagramFeatures'
-import { canDeleteFromModel, DeleteFromModelButton, RenameButton } from '../../../../editor-ui'
+import { canDeleteFromModel, DeleteFromModelButton, MoveButton, RenameButton } from '../../../../editor-ui'
 import type { Types } from '../../../types'
 import { BorderStyleOption, BrowseRelationshipsButton, GoToSourceButton } from './_shared'
 import { ColorButton } from './ColorButton'
@@ -36,7 +36,12 @@ export function CompoundElementToolbar(props: Types.NodeProps<'compound-element'
       />
       {enableVscode && <GoToSourceButton elementId={modelFqn} />}
       {enableRelationshipBrowser && <BrowseRelationshipsButton fqn={modelFqn} />}
-      {canDeleteFromModel({ element: modelFqn }) && <RenameButton nodeId={props.id} />}
+      {canDeleteFromModel({ element: modelFqn }) && (
+        <>
+          <RenameButton nodeId={props.id} />
+          <MoveButton nodeId={props.id} />
+        </>
+      )}
       {canDeleteFromModel({ element: modelFqn }) && (
         <DeleteFromModelButton target={{ element: modelFqn }} title={props.data.title} />
       )}
