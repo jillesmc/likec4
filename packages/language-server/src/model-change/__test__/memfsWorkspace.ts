@@ -4,7 +4,7 @@ import stripIndent from 'strip-indent'
 import { vi } from 'vitest'
 import type { ApplyWorkspaceEditParams, ApplyWorkspaceEditResult } from 'vscode-languageserver'
 import { URI } from 'vscode-uri'
-import { WithFileSystem } from '../../filesystem'
+import { WithFileSystem, WithLikeC4ManualLayouts } from '../../filesystem'
 import type { ChangeView } from '../../protocol'
 import { createTestServices } from '../../test'
 
@@ -26,8 +26,12 @@ export interface FakeLspConnection {
  * Requires `vi.mock('node:fs')` and `vi.mock('node:fs/promises')` in the spec file.
  *
  * With `lsp: true`, edits go through a fake LSP connection, that applies them to memfs.
+ * With `manualLayouts: true`, manual-layout snapshots are read from and written to memfs (`.likec4/`).
  */
-export async function memfsWorkspace(files: Record<string, string>, opts?: { lsp?: boolean }) {
+export async function memfsWorkspace(
+  files: Record<string, string>,
+  opts?: { lsp?: boolean; manualLayouts?: boolean },
+) {
   const workspacePath = URI.file(`/test/workspace/model-change/ws${++seq}`)
   vol.mkdirSync(workspacePath.fsPath, { recursive: true })
 
@@ -42,6 +46,7 @@ export async function memfsWorkspace(files: Record<string, string>, opts?: { lsp
     workspace: workspacePath.toString(),
     context: {
       ...WithFileSystem(),
+      ...opts?.manualLayouts && WithLikeC4ManualLayouts,
     },
   })
 
@@ -52,7 +57,24 @@ export async function memfsWorkspace(files: Record<string, string>, opts?: { lsp
   )
   vi.spyOn(fs, 'readFile').mockImplementation(async uri => vol.readFileSync(uri.fsPath, 'utf-8').toString())
   vi.spyOn(fs, 'writeFile').mockImplementation(async (uri, content) => {
+    vol.mkdirSync(UriUtils.dirname(uri).fsPath, { recursive: true })
     vol.writeFileSync(uri.fsPath, content, { encoding: 'utf-8' })
+  })
+  vi.spyOn(fs, 'scanDirectory').mockImplementation(async (uri, filter) => {
+    if (!vol.existsSync(uri.fsPath)) {
+      return []
+    }
+    return vol.readdirSync(uri.fsPath).map(String)
+      .map(name => UriUtils.joinPath(uri, name))
+      .filter(file => vol.statSync(file.fsPath).isFile() && filter(file.fsPath, false))
+      .map(file => ({ isDirectory: false, isFile: true, uri: file }))
+  })
+  vi.spyOn(fs, 'deleteFile').mockImplementation(async uri => {
+    if (!vol.existsSync(uri.fsPath)) {
+      return false
+    }
+    vol.unlinkSync(uri.fsPath)
+    return true
   })
 
   let lsp: FakeLspConnection | null = null
@@ -97,5 +119,13 @@ export async function memfsWorkspace(files: Record<string, string>, opts?: { lsp
     return services.likec4.ModelChanges.applyChange(params)
   }
 
-  return { services, read, apply, lsp, uri: (name: string) => uris.get(name)!.toString() }
+  /**
+   * Manual-layout snapshot of the view, if any
+   */
+  function snapshot(viewId: string): string | null {
+    const path = UriUtils.joinPath(workspacePath, '.likec4', `${viewId}.likec4.snap`).fsPath
+    return vol.existsSync(path) ? vol.readFileSync(path, 'utf-8').toString() : null
+  }
+
+  return { services, read, apply, lsp, snapshot, uri: (name: string) => uris.get(name)!.toString() }
 }

@@ -305,6 +305,10 @@ export namespace ChangeView {
      * Fqn of the element, deployment node or instance created by the change
      */
     created?: string | undefined
+    /**
+     * New id of the view of the change, when the change renamed it (an unnamed `view of x`)
+     */
+    viewId?: ViewId | undefined
   } | {
     success: false
     location?: Location | null

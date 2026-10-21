@@ -1,4 +1,4 @@
-import { invariant, nonNullable } from '@likec4/core'
+import { type FqnRenames, invariant, nonNullable } from '@likec4/core'
 import { type CstNode, type TextDocument, GrammarUtils } from 'langium'
 import { last } from 'remeda'
 import type { Location, Range, TextEdit } from 'vscode-languageserver-types'
@@ -15,6 +15,11 @@ export interface ModelChangePlan {
    * Fqn of the item created by the change, if any
    */
   created?: string
+  /**
+   * Old → new FQNs when the change renames or moves items:
+   * references must keep their targets, manual layouts follow
+   */
+  renames?: FqnRenames
 }
 
 /**

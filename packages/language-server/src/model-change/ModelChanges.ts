@@ -1,4 +1,14 @@
-import { type ProjectId, type ViewChange, invariant, nonexhaustive } from '@likec4/core'
+import {
+  type FqnRenames,
+  type LayoutedView,
+  type ProjectId,
+  type ViewChange,
+  type ViewId,
+  invariant,
+  nonexhaustive,
+  renameFqn,
+  renameFqnsInSnapshot,
+} from '@likec4/core'
 import { loggable, wrapError } from '@likec4/log'
 import { type LangiumDocument, TextDocument, URI } from 'langium'
 import { DiagnosticSeverity, Range, TextEdit } from 'vscode-languageserver-types'
@@ -7,6 +17,7 @@ import type { LikeC4ModelLocator, ViewLocateResult } from '../model'
 import type { LikeC4Services } from '../module'
 import type { ChangeView, UndoChange } from '../protocol'
 import type { ModelChangePlan } from './_anchors'
+import { brokenReference, resolvedReferences } from './_guard'
 import { addDeploymentNode, addInstance } from './addDeployment'
 import { addDynamicStep } from './addDynamicStep'
 import { addElement } from './addElement'
@@ -18,6 +29,7 @@ import { deleteFromModel } from './deleteFromModel'
 import { excludeFromView } from './excludeFromView'
 import { ModelChangeError } from './ModelChangeError'
 import { removeDynamicStep } from './removeDynamicStep'
+import { renameElement } from './renameElement'
 import { changePropertyHandler, preparePayload } from './viewChange'
 
 const logger = mainLogger.getChild('model-changes')
@@ -35,6 +47,7 @@ type ModelChangeOp =
   | ViewChange.AddInstance
   | ViewChange.AddDynamicStep
   | ViewChange.RemoveDynamicStep
+  | ViewChange.RenameElement
 
 const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   change.op === 'add-relation'
@@ -46,12 +59,19 @@ const isModelChangeOp = (change: ViewChange): change is ModelChangeOp =>
   || change.op === 'add-instance'
   || change.op === 'add-dynamic-step'
   || change.op === 'remove-dynamic-step'
+  || change.op === 'rename-element'
 
 type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
+
+/**
+ * Manual-layout snapshot of a view before and after a change (null: no snapshot)
+ */
+type SnapshotChange = { viewId: ViewId; before: LayoutedView | null; after: LayoutedView | null }
 
 type HistoryEntry = {
   id: string
   files: Array<{ uri: string; before: string; after: string }>
+  snapshots?: SnapshotChange[]
 }
 
 const HISTORY_LIMIT = 100
@@ -63,6 +83,28 @@ const HISTORY_MAX_SIZE = 20_000_000
 type UndoRedoParams = UndoChange.Params
 
 const entrySize = (entry: HistoryEntry) => entry.files.reduce((size, f) => size + f.before.length + f.after.length, 0)
+
+type ViewOf = { id: ViewId; viewOf: string | null }
+
+/**
+ * Views whose id changed with the renames: an unnamed `view of x` has an id derived from `x`
+ */
+function viewIdChanges(before: ViewOf[], after: ViewOf[], renames: FqnRenames): Map<ViewId, ViewId> {
+  const beforeIds = new Set(before.map(v => v.id))
+  const afterIds = new Set(after.map(v => v.id))
+  const changes = new Map<ViewId, ViewId>()
+  for (const view of before) {
+    if (!view.viewOf || afterIds.has(view.id)) {
+      continue
+    }
+    const viewOf = renameFqn(renames.elements, view.viewOf)
+    const renamed = after.find(v => v.viewOf === viewOf && !beforeIds.has(v.id))
+    if (renamed) {
+      changes.set(view.id, renamed.id)
+    }
+  }
+  return changes
+}
 
 const errorsOf = (doc: LangiumDocument | undefined): string[] =>
   (doc?.diagnostics ?? [])
@@ -309,6 +351,10 @@ export class LikeC4ModelChanges {
           plan = removeDynamicStep(this.services, { lookup, model, change })
           break
         }
+        case 'rename-element': {
+          plan = renameElement(this.services, { projectId: project.id, model, change })
+          break
+        }
         default:
           nonexhaustive(change)
       }
@@ -318,7 +364,7 @@ export class LikeC4ModelChanges {
           error: 'No changes to apply',
         }
       }
-      return await this.applyPlan(plan, project.id)
+      return await this.applyPlan(plan, project.id, viewId)
     } catch (err) {
       if (err instanceof ModelChangeError) {
         logger.warn`Rejected ${change.op} in view ${viewId}: [${err.code}] ${err.message}`
@@ -338,10 +384,17 @@ export class LikeC4ModelChanges {
   }
 
   /**
-   * Applies the plan, and reverts it if any touched document gained errors
+   * Applies the plan, and reverts it if any touched document gained errors.
+   * A plan that renames items is also reverted when a reference resolves differently,
+   * and the manual layouts of the project follow the renames.
    */
-  protected async applyPlan(plan: ModelChangePlan, projectId: ProjectId): Promise<ChangeView.Res> {
+  protected async applyPlan(plan: ModelChangePlan, projectId: ProjectId, viewId: ViewId): Promise<ChangeView.Res> {
     const documents = this.services.shared.workspace.LangiumDocuments
+    const renames = plan.renames
+    const baseline = renames && {
+      references: resolvedReferences(this.services, [projectId]),
+      views: await this.viewsOf(projectId),
+    }
     const before = new Map<string, { text: string; errors: string[] }>()
     for (const uri of plan.edits.keys()) {
       const doc = documents.getDocument(URI.parse(uri))
@@ -374,7 +427,25 @@ export class LikeC4ModelChanges {
       }
     }
 
-    const historyId = this.recordHistory(projectId, before, plan.edits)
+    let viewIds = new Map<ViewId, ViewId>()
+    let snapshots: SnapshotChange[] = []
+    if (renames && baseline) {
+      const broken = brokenReference(baseline.references, resolvedReferences(this.services, [projectId]), renames)
+      if (broken) {
+        const reverted = await this.revert(before)
+        if (!reverted.applied) {
+          throw new ModelChangeError(
+            'apply-failed',
+            `Change breaks ${broken} and could not be reverted (${reverted.reason})`,
+          )
+        }
+        throw new ModelChangeError('invalid-result', `The change would break ${broken}`)
+      }
+      viewIds = viewIdChanges(baseline.views, await this.viewsOf(projectId), renames)
+      snapshots = await this.renameInSnapshots(projectId, renames, viewIds)
+    }
+
+    const historyId = this.recordHistory(projectId, before, plan.edits, snapshots)
 
     return {
       success: true,
@@ -382,7 +453,49 @@ export class LikeC4ModelChanges {
       modifiedUris: [...plan.edits.keys()],
       ...historyId && { historyId },
       ...plan.created && { created: plan.created },
+      ...viewIds.has(viewId) && { viewId: viewIds.get(viewId) },
     }
+  }
+
+  /**
+   * Element views with their `viewOf`, to follow views whose id changes with a rename
+   */
+  protected async viewsOf(projectId: ProjectId): Promise<ViewOf[]> {
+    const model = await this.services.likec4.ModelBuilder.parseModel(projectId)
+    return Object.values(model?.$data.views ?? {}).map(view => ({
+      id: view.id,
+      viewOf: 'viewOf' in view ? view.viewOf ?? null : null,
+    }))
+  }
+
+  /**
+   * Rewrites the manual-layout snapshots of the project after a rename (ADR-002)
+   */
+  protected async renameInSnapshots(
+    projectId: ProjectId,
+    renames: FqnRenames,
+    viewIds: Map<ViewId, ViewId>,
+  ): Promise<SnapshotChange[]> {
+    const workspace = this.services.shared.workspace
+    const project = workspace.ProjectsManager.getProject(projectId)
+    const snapshots = await workspace.ManualLayouts.read(project)
+    const changes: SnapshotChange[] = []
+    for (const view of Object.values(snapshots?.views ?? {})) {
+      const renamed = renameFqnsInSnapshot(view, renames)
+      const id = viewIds.get(view.id) ?? view.id
+      if (renamed === view && id === view.id) {
+        continue
+      }
+      await workspace.ManualLayouts.write(project, { ...renamed, id })
+      if (id === view.id) {
+        changes.push({ viewId: id, before: view, after: renamed })
+      } else {
+        await workspace.ManualLayouts.remove(project, view.id)
+        changes.push({ viewId: view.id, before: view, after: null })
+        changes.push({ viewId: id, before: null, after: { ...renamed, id } })
+      }
+    }
+    return changes
   }
 
   protected resolveProjectId(projectId: string | undefined): ProjectId {
@@ -441,6 +554,7 @@ export class LikeC4ModelChanges {
     projectId: ProjectId,
     before: Map<string, { text: string }>,
     edits: Map<string, TextEdit[]>,
+    snapshots: SnapshotChange[] = [],
   ): string {
     const files = [...before].map(([uri, { text }]) => ({
       uri,
@@ -449,7 +563,7 @@ export class LikeC4ModelChanges {
     }))
     const history = this.historyOf(projectId)
     const id = `h${++this.historySeq}`
-    history.undo.push({ id, files })
+    history.undo.push({ id, files, ...snapshots.length > 0 && { snapshots } })
     history.redo = []
     let size = history.undo.reduce((total, entry) => total + entrySize(entry), 0)
     while (history.undo.length > 1 && (history.undo.length > HISTORY_LIMIT || size > this.historyMaxSize)) {
@@ -520,6 +634,9 @@ export class LikeC4ModelChanges {
         error: `Failed to ${direction} change: ${result.reason}`,
       }
     }
+    if (entry.snapshots) {
+      await this.restoreSnapshots(project.id, entry.snapshots, direction)
+    }
     to.push(entry)
     const first = entry.files[0]
     return {
@@ -529,6 +646,22 @@ export class LikeC4ModelChanges {
         : null,
       modifiedUris: entry.files.map(f => f.uri),
       historyId: entry.id,
+    }
+  }
+
+  /**
+   * Writes back the snapshots of a history entry (removes those that did not exist)
+   */
+  protected async restoreSnapshots(projectId: ProjectId, snapshots: SnapshotChange[], direction: 'undo' | 'redo') {
+    const workspace = this.services.shared.workspace
+    const project = workspace.ProjectsManager.getProject(projectId)
+    for (const snapshot of snapshots) {
+      const layout = direction === 'undo' ? snapshot.before : snapshot.after
+      if (layout) {
+        await workspace.ManualLayouts.write(project, layout)
+      } else {
+        await workspace.ManualLayouts.remove(project, snapshot.viewId)
+      }
     }
   }
 
