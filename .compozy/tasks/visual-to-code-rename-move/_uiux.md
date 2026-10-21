@@ -21,14 +21,14 @@ the existing Mantine components, PandaCSS tokens and the phase-1 prompt componen
 | R2 | Deployment node / instance toolbar | modified | "Rename identifier" only                                                                                  | US-002         |
 | R3 | Rename prompt                      | new      | `TitlePrompt` with one field, label `Identifier`, current name selected, identifier validation            | US-001, US-002 |
 | R4 | Move prompt                        | new      | Searchable list: "Top level", then `title (fqn)` of each possible parent; Enter picks the highlighted one | US-003         |
-| R5 | F2 hotkey                          | new      | Bound in the editor's hotkey actor; ignored while a prompt or input has focus                             | US-001         |
+| R5 | F2 hotkey                          | new      | Bound on the canvas (`DiagramXYFlow`); ignored while a text field has focus                               | US-001         |
 
 ## States
 
 | Surface | State                | Behaviour                                                                             |
 | ------- | -------------------- | ------------------------------------------------------------------------------------- |
-| R3      | invalid name         | Error text under the field (`<name> is not a valid identifier`), Enter disabled       |
-| R3      | taken name           | Error text `<parent> already has <name>`, Enter disabled                              |
+| R3      | invalid name         | Error text `Invalid identifier` (phase-1 identifier prompt), Enter disabled           |
+| R3      | taken name           | Error text `Already used by a sibling` (phase-1 identifier prompt), Enter disabled    |
 | R3, R4  | pending              | The prompt closes; the node stays as is until the view updates (no ghost for renames) |
 | R3, R4  | refused              | Phase-1 failure toast with the server message                                         |
 | R4      | no match             | `No element matches` in the list                                                      |
