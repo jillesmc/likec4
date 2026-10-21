@@ -1,5 +1,5 @@
 ---
-status: pending
+status: completed
 title: 'Task 04: Rename across projects that import the element'
 type: backend
 complexity: medium
@@ -27,7 +27,7 @@ A renamed top-level element may be imported by other projects of the workspace
 
 ## Subtasks
 
-- [ ] 4.1 Server: `planRename` follows `Imported` nodes; guard and snapshot rewrite cover the
+- [x] 4.1 Server: `planRename` follows `Imported` nodes; guard and snapshot rewrite cover the
       importing projects.
 
 ## Implementation Details
@@ -41,4 +41,19 @@ A renamed top-level element may be imported by other projects of the workspace
 
 ## Tests
 
-- [ ] UT-030 — import and importing references renamed (multi-project fixture)
+- [x] UT-030 — import and importing references renamed (multi-project fixture)
+
+## Completion Notes (2026-10-20)
+
+- Planner: a reference to the renamed element found in an `import` (`ast.Imported`) is renamed, and
+  the references to that import in the importing project are renamed too (they spell the old name).
+  Nested elements need nothing more: `cloud.api` in the importing project already references the
+  element of the other project for its `api` segment.
+- Guard: keys carry the project of the target (two projects may have the same local FQN); renames
+  apply to the project of the change only. The guard covers every project owning an edited file.
+- Snapshots: views of the importing projects are rewritten with the global ids
+  (`@projectA.cloud` → `@projectA.platform`); history entries record the project of each snapshot.
+- Known limit (ponytail comment in `_references.ts`): an unnamed instance of the imported element
+  in the importing project is not followed; the guard refuses such a rename instead of breaking it.
+- Verification: UT-030 failed before (`invalid-result`), passes after; language-server 955 passed;
+  `pnpm typecheck` 26/26; oxlint clean on the changed files.
