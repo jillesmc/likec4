@@ -139,8 +139,21 @@ export function moveElement(
   }
 
   const renames = new Map([[fqn as string, newFqn as string]])
-  const moved = (target: AstNode | undefined): target is ast.Element =>
-    ast.isElement(target) && AstUtils.hasContainerOfType(target, n => n === node)
+  // The moved element and its descendants, also those declared in `extend` blocks elsewhere
+  const subtree = new Set<ast.Element>()
+  for (const element of model.elements()) {
+    if (element.id !== fqn && !element.id.startsWith(fqn + '.')) {
+      continue
+    }
+    for (const desc of fqnIndex.byFqn(projectId, Fqn(element.id))) {
+      const descDoc = documents.getDocument(desc.documentUri)
+      const descNode = desc.node ?? (descDoc && locator.getAstNode(descDoc.parseResult.value, desc.path))
+      if (ast.isElement(descNode)) {
+        subtree.add(descNode)
+      }
+    }
+  }
+  const moved = (target: AstNode | undefined): target is ast.Element => ast.isElement(target) && subtree.has(target)
   const newFqnOf = (element: ast.Element) => {
     const old = fqnIndex.getFqn(element)
     return newFqn + old.slice(fqn.length)
@@ -162,7 +175,6 @@ export function moveElement(
   }
 
   // References outside the moved block, to the moved elements: their new full FQN
-  const subtree = AstUtils.streamAst(node).filter(ast.isElement).toArray()
   for (const target of subtree) {
     for (const ref of references.findReferences(target, { includeDeclaration: false })) {
       const source = documents.getDocument(ref.sourceUri)
@@ -199,7 +211,7 @@ export function moveElement(
       switch (true) {
         case text === 'this' || text === 'it':
           break
-        case moved(target) || target === node:
+        case moved(target):
           // a short name resolves in the moved block, a qualified one uses the old place
           if ('parent' in chain && chain.parent && ast.isElement(target)) {
             newText = newFqnOf(target)
