@@ -94,6 +94,10 @@ test('E2E-006: the identifier follows the title and can be replaced by typing', 
   await expect(page.locator('.react-flow__node[data-id="customer"]')).toBeVisible()
   await page.locator('button:has(svg.tabler-icon-lock)').click()
 
+  // zoom out, so a prompt scaled with the canvas would be smaller than its layout size
+  await page.getByRole('button', { name: 'Zoom Out' }).click()
+  await page.getByRole('button', { name: 'Zoom Out' }).click()
+  await page.waitForTimeout(500)
   const pane = page.locator('.react-flow__pane')
   const paneBox = (await pane.boundingBox())!
   await page.locator('[data-likec4-palette-kind="system"]').dragTo(pane, {
@@ -103,6 +107,9 @@ test('E2E-006: the identifier follows the title and can be replaced by typing', 
   const title = page.getByLabel('Title of the new system')
   const identifier = page.getByLabel('Identifier')
   await expect(identifier).toHaveValue('newSystem')
+  // the prompt is not scaled by the zoom of the canvas (rendered width = layout width)
+  const scale = await title.evaluate((el: HTMLElement) => el.getBoundingClientRect().width / el.offsetWidth)
+  expect(Math.abs(scale - 1)).toBeLessThan(0.02)
   await title.fill('Payment Service')
   await expect(identifier).toHaveValue('paymentService')
 
@@ -123,6 +130,18 @@ test('E2E-006: the identifier follows the title and can be replaced by typing', 
   await identifier.fill('payments')
   await identifier.press('Enter')
   await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`  payments = system 'Payment Services'`)
+})
+
+test('the palette can be collapsed to free the canvas', async ({ page }) => {
+  await page.goto('/view/index/')
+  await expect(page.locator('.react-flow__node[data-id="customer"]')).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+  const kind = page.locator('[data-likec4-palette-kind="system"]')
+  await expect(kind).toBeVisible()
+  await page.getByRole('button', { name: 'Elements' }).click()
+  await expect(kind).toHaveCount(0)
+  await page.getByRole('button', { name: 'Elements' }).click()
+  await expect(kind).toBeVisible()
 })
 
 test('US-003: double-clicking a node edits its title in the sources', async ({ page }) => {
@@ -243,6 +262,11 @@ test('E2E-007: connecting asks for title, kind and technology', async ({ page })
   await page.mouse.move(to.x + 20, to.y + 20, { steps: 10 })
   await page.mouse.up()
 
+  // the prompt is inside the canvas
+  const canvas = (await page.locator('.react-flow').boundingBox())!
+  const prompt = (await page.locator('[data-likec4-connect-prompt]').boundingBox())!
+  expect(prompt.x).toBeGreaterThanOrEqual(canvas.x)
+  expect(prompt.x + prompt.width).toBeLessThanOrEqual(canvas.x + canvas.width)
   // click (unlike fill) fails when something covers the prompt, e.g. the target node
   await page.getByLabel('Relation title').click()
   await page.getByLabel('Relation title').fill('uses')
@@ -290,6 +314,36 @@ test('US-014: double-clicking a relation label edits its title', async ({ page }
   // ends once the view is updated, so the next test's fixture restore is not mixed with this write
   await expect(page.locator('.likec4-edge-label-container').getByText('uses daily', { exact: true }))
     .toBeVisible({ timeout: 10_000 })
+})
+
+test('the connect prompt is moved back inside a narrow canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 560, height: 700 })
+  await page.goto('/view/index/')
+  const customer = page.locator('.react-flow__node[data-id="customer"]')
+  const cloud = page.locator('.react-flow__node[data-id="cloud"]')
+  await expect(customer).toBeVisible()
+  await page.locator('button:has(svg.tabler-icon-lock)').click()
+
+  await customer.hover()
+  const from = (await customer.locator('.likec4-connect-handle').boundingBox())!
+  const to = (await cloud.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  // release on the right side of the target: the prompt would overflow the canvas
+  await page.mouse.move(to.x + to.width - 10, to.y + 20, { steps: 10 })
+  await page.mouse.up()
+
+  const prompt = page.locator('[data-likec4-connect-prompt]')
+  await expect(prompt).toBeVisible()
+  await page.waitForTimeout(500)
+  const canvas = (await page.locator('.react-flow').boundingBox())!
+  const box = (await prompt.boundingBox())!
+  expect(box.x + box.width).toBeLessThanOrEqual(canvas.x + canvas.width)
+  expect(box.x).toBeGreaterThanOrEqual(canvas.x)
+  await page.getByLabel('Relation title').click()
+  await page.getByLabel('Relation title').press('Enter')
+  await expect.poll(() => readServed(), { timeout: 10_000 }).toContain(`-> cloud`)
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1, { timeout: 10_000 })
 })
 
 test('E2E-004: Ctrl+Z / Ctrl+Shift+Z undo and redo model changes', async ({ page }) => {
