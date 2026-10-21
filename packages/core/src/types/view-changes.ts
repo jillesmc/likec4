@@ -179,6 +179,16 @@ export namespace ViewChange {
     target: { element: scalar.Fqn } | { deployment: scalar.DeploymentFqn }
     name: string
   }
+
+  /**
+   * Move an element, with its subtree, under another parent (`null`: top level).
+   * Every reference to the moved elements is rewritten; manual layouts follow the new FQNs.
+   */
+  export interface MoveElement {
+    op: 'move-element'
+    element: scalar.Fqn
+    parent: scalar.Fqn | null
+  }
 }
 
 export type ViewChange =
@@ -197,6 +207,7 @@ export type ViewChange =
   | ViewChange.AddDynamicStep
   | ViewChange.RemoveDynamicStep
   | ViewChange.RenameElement
+  | ViewChange.MoveElement
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
