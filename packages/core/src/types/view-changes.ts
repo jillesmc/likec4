@@ -169,6 +169,16 @@ export namespace ViewChange {
       | { deploymentNode: scalar.DeploymentFqn }
       | { relation: scalar.RelationId }
   }
+
+  /**
+   * Rename the identifier of an element: its definition and every reference in the workspace.
+   * Manual layouts follow the new name.
+   */
+  export interface RenameElement {
+    op: 'rename-element'
+    target: { element: scalar.Fqn }
+    name: string
+  }
 }
 
 export type ViewChange =
@@ -186,6 +196,7 @@ export type ViewChange =
   | ViewChange.AddInstance
   | ViewChange.AddDynamicStep
   | ViewChange.RemoveDynamicStep
+  | ViewChange.RenameElement
 
 /**
  * Deterministic error codes returned when a {@link ViewChange} is rejected
@@ -201,3 +212,4 @@ export type ViewChangeErrorCode =
   | 'invalid-result'
   | 'apply-failed'
   | 'stale-undo'
+  | 'invalid-parent'

@@ -33,6 +33,9 @@ export {
   applyCachedLayout,
   applyManualLayout,
   calcDriftsFromSnapshot,
+  type FqnRenames,
+  renameFqn,
+  renameFqnsInSnapshot,
 } from './manual-layout'
 
 export type {
