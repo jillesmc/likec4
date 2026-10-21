@@ -326,18 +326,18 @@ None outside the repository.
 
 ## Impact Analysis
 
-| Component                                              | Impact Type         | Description and Risk                                                                                   | Required Action                       |
-| ------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `core/types/view-changes.ts`                           | modified (additive) | 2 ops, 1 error code. Exhaustive switches break at compile time (desired). Low                          | `pnpm exec tsc --build`               |
-| `core/manual-layout/` `renameFqnsInSnapshot`           | new                 | Pure id mapping. Low                                                                                   | Unit spec                             |
-| `language-server/model-change/_references.ts`          | new                 | Planner shared by canvas and text rename. High (correctness of every rewrite)                          | Table-driven specs per reference kind |
-| `language-server/model-change/ModelChanges.ts`         | modified            | Guard, snapshot rewrite, snapshots in history, `viewId` in result. High (central path)                 | Phase-1 specs stay green              |
-| `language-server/lsp/RenameProvider.ts`, `module.ts`   | modified            | Provider re-enabled, gated to elements / deployment items. Medium (new LSP capability for all editors) | Provider spec                         |
-| `language-server/filesystem/LikeC4ManualLayouts.ts`    | modified (additive) | Read / write / delete of snapshots for a list of views, used by rewrite and undo. Medium               | Spec with memfs                       |
-| `diagram/editor-ui/*`, node toolbars, `hotkey.ts`      | modified            | Two buttons, two prompts, F2. Medium                                                                   | Editor-UI specs, E2E                  |
-| `diagram/editor` port result                           | modified (additive) | `handleChange` may return `viewId`; navigation after sync. Low                                         | Sync-queue spec                       |
-| `likec4-spa` port, `vscode-preview` port, `vscode` ext | modified            | Pass back the result's `viewId`. Low                                                                   | Manual check in Code - OSS            |
-| `core/manual-layout` drift                             | unaffected          | No new drift reason. A move into a shown parent reports `parent-changed` as today                      | —                                     |
+| Component                                              | Impact Type          | Description and Risk                                                                                   | Required Action                       |
+| ------------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `core/types/view-changes.ts`                           | modified (additive)  | 2 ops, 1 error code. Exhaustive switches break at compile time (desired). Low                          | `pnpm exec tsc --build`               |
+| `core/manual-layout/` `renameFqnsInSnapshot`           | new                  | Pure id mapping. Low                                                                                   | Unit spec                             |
+| `language-server/model-change/_references.ts`          | new                  | Planner shared by canvas and text rename. High (correctness of every rewrite)                          | Table-driven specs per reference kind |
+| `language-server/model-change/ModelChanges.ts`         | modified             | Guard, snapshot rewrite, snapshots in history, `viewId` in result. High (central path)                 | Phase-1 specs stay green              |
+| `language-server/lsp/RenameProvider.ts`, `module.ts`   | modified             | Provider re-enabled, gated to elements / deployment items. Medium (new LSP capability for all editors) | Provider spec                         |
+| `language-server/filesystem/LikeC4ManualLayouts.ts`    | unaffected (checked) | `read` / `write` / `remove` cover the rewrite and the undo. Low                                        | —                                     |
+| `diagram/editor-ui/*`, node toolbars, `hotkey.ts`      | modified             | Two buttons, two prompts, F2. Medium                                                                   | Editor-UI specs, E2E                  |
+| `diagram/editor` port result                           | modified (additive)  | `handleChange` may return `viewId`; navigation after sync. Low                                         | Sync-queue spec                       |
+| `likec4-spa` port, `vscode-preview` port, `vscode` ext | modified             | Pass back the result's `viewId`. Low                                                                   | Manual check in Code - OSS            |
+| `core/manual-layout` drift                             | unaffected           | No new drift reason. A move into a shown parent reports `parent-changed` as today                      | —                                     |
 
 Compatibility: no persisted format changes; additive public surfaces; no shim.
 
