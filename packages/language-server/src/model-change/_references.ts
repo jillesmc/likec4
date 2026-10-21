@@ -94,6 +94,12 @@ export function planElementRename(services: LikeC4Services, node: ast.Element, n
   }
   const renameReferences = referenceRenamer(services, edits, node.name, name)
   renameReferences(node, ref => {
+    // another project imports the element: its references go through the import
+    if (ast.isImported(ref)) {
+      // ponytail: unnamed instances of the imported element in that project are not followed (the guard refuses)
+      renameReferences(ref)
+      return
+    }
     const instance = unnamedInstanceOf(ref)
     if (instance) {
       const instanceFqn = services.likec4.DeploymentsIndex.getFqn(instance)

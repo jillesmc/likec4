@@ -2,6 +2,7 @@ import type { DeploymentFqn, Fqn, ViewId } from '@likec4/core'
 import { vol } from 'memfs'
 import { describe, expect, it, vi } from 'vitest'
 import { URI } from 'vscode-uri'
+import { createMultiProjectTestServices } from '../test'
 import { memfsWorkspace } from './__test__/memfsWorkspace'
 
 vi.mock('node:fs')
@@ -570,5 +571,78 @@ describe('rename-element in the pipeline', () => {
 
     expect(await ws.services.likec4.ModelChanges.undo({})).toMatchObject({ success: false, code: 'stale-undo' })
     expect({ model: ws.read('model.c4'), index: ws.snapshot('index') }).toEqual(after)
+  })
+})
+
+describe('rename-element across projects', () => {
+  it('UT-030: the import and the references of the importing project follow the rename', async () => {
+    const { services, validateAll, projects } = await createMultiProjectTestServices({
+      projectA: {
+        model: `
+          specification { element system }
+          model {
+            cloud = system 'Cloud' {
+              api = system 'API'
+            }
+          }
+          views {
+            view index {
+              include *
+            }
+          }
+        `,
+      },
+      projectB: {
+        model: `
+          import { cloud } from 'projectA'
+          specification { element actor }
+          model {
+            customer = actor 'Customer' {
+              -> cloud.api
+              -> cloud
+            }
+          }
+          views {
+            view index {
+              include *, cloud
+            }
+          }
+        `,
+      },
+    })
+    await validateAll()
+    const files = new Map(services.shared.workspace.LangiumDocuments.all.map(d => [
+      d.uri.toString(),
+      d.textDocument.getText(),
+    ]))
+    const fs = services.shared.workspace.FileSystemProvider
+    vi.spyOn(fs, 'readFile').mockImplementation(async uri => files.get(uri.toString()) ?? '')
+    vi.spyOn(fs, 'writeFile').mockImplementation(async (uri, content) => {
+      files.set(uri.toString(), content)
+    })
+
+    const res = await services.likec4.ModelChanges.applyChange({
+      ...rename('cloud', 'platform'),
+      projectId: 'projectA',
+    })
+    expect(res).toMatchObject({ success: true })
+    expect(files.get(projects.projectA.model.uri.toString())).toContain(`platform = system 'Cloud'`)
+    expect(files.get(projects.projectB.model.uri.toString())).toMatchInlineSnapshot(`
+      "
+      import { platform } from 'projectA'
+      specification { element actor }
+      model {
+        customer = actor 'Customer' {
+          -> platform.api
+          -> platform
+        }
+      }
+      views {
+        view index {
+          include *, platform
+        }
+      }
+              "
+    `)
   })
 })

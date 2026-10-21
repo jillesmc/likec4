@@ -2,15 +2,17 @@ import { type FqnRenames, type ProjectId, renameFqn } from '@likec4/core'
 import { AstUtils, isReference } from 'langium'
 import { ast } from '../ast'
 import type { LikeC4Services } from '../module'
+import { projectIdFrom } from '../utils'
 
 /**
  * Resolved references to elements and deployment items:
- * `document uri|target` → lines of the references (0-based)
+ * `document uri|kind|project|target fqn` → lines of the references (0-based).
+ * The project of the target is part of the key: projects may have the same local FQNs.
  */
 export type ResolvedReferences = Map<string, number[]>
 
-const ELEMENT = 'element:'
-const DEPLOYMENT = 'deployment:'
+const ELEMENT = 'element'
+const DEPLOYMENT = 'deployment'
 
 /**
  * Where every reference of the projects points to (ADR-001)
@@ -29,10 +31,10 @@ export function resolvedReferences(services: LikeC4Services, projects: Iterable<
           let id: string
           switch (true) {
             case ast.isElement(target):
-              id = ELEMENT + services.likec4.FqnIndex.getFqn(target)
+              id = `${ELEMENT}|${projectIdFrom(target)}|${services.likec4.FqnIndex.getFqn(target)}`
               break
             case ast.isDeploymentNode(target) || ast.isDeployedInstance(target):
-              id = DEPLOYMENT + services.likec4.DeploymentsIndex.getFqn(target)
+              id = `${DEPLOYMENT}|${projectIdFrom(target)}|${services.likec4.DeploymentsIndex.getFqn(target)}`
               break
             default:
               continue
@@ -54,26 +56,29 @@ export function resolvedReferences(services: LikeC4Services, projects: Iterable<
 
 /**
  * The references from `before` that do not resolve to the same item `after` the change
- * (under the renames), as `file:line`; null when every reference still resolves the same way.
+ * (under the renames of items of `projectId`), as `file:line`; null when every reference still resolves the same way.
  */
 export function brokenReference(
   before: ResolvedReferences,
   after: ResolvedReferences,
   renames: FqnRenames,
+  projectId: ProjectId,
 ): string | null {
   const expected: ResolvedReferences = new Map()
   for (const [key, lines] of before) {
-    const [uri, id] = key.split('|') as [string, string]
-    let mapped = id
+    const [uri, kind, project, fqn] = key.split('|') as [string, string, string, string]
+    let mapped = fqn
     switch (true) {
-      case id.startsWith(ELEMENT):
-        mapped = ELEMENT + renameFqn(renames.elements, id.slice(ELEMENT.length))
+      case project !== projectId:
         break
-      case id.startsWith(DEPLOYMENT):
-        mapped = DEPLOYMENT + renameFqn(renames.deployments, id.slice(DEPLOYMENT.length))
+      case kind === ELEMENT:
+        mapped = renameFqn(renames.elements, fqn)
+        break
+      case kind === DEPLOYMENT:
+        mapped = renameFqn(renames.deployments, fqn)
         break
     }
-    expected.set(`${uri}|${mapped}`, lines)
+    expected.set(`${uri}|${kind}|${project}|${mapped}`, lines)
   }
   for (const key of new Set([...expected.keys(), ...after.keys()])) {
     const was = expected.get(key) ?? []

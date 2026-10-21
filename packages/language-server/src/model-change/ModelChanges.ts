@@ -66,7 +66,7 @@ type ApplyEditsResult = { applied: true } | { applied: false; reason: string }
 /**
  * Manual-layout snapshot of a view before and after a change (null: no snapshot)
  */
-type SnapshotChange = { viewId: ViewId; before: LayoutedView | null; after: LayoutedView | null }
+type SnapshotChange = { projectId: ProjectId; viewId: ViewId; before: LayoutedView | null; after: LayoutedView | null }
 
 type HistoryEntry = {
   id: string
@@ -85,6 +85,13 @@ type UndoRedoParams = UndoChange.Params
 const entrySize = (entry: HistoryEntry) => entry.files.reduce((size, f) => size + f.before.length + f.after.length, 0)
 
 type ViewOf = { id: ViewId; viewOf: string | null }
+
+/**
+ * Renames of elements of a project, as seen from other projects (global ids `@project.fqn`)
+ */
+function globalRenames(projectId: ProjectId, renames: FqnRenames['elements']): Map<string, string> {
+  return new Map([...renames ?? []].map(([from, to]) => [`@${projectId}.${from}`, `@${projectId}.${to}`]))
+}
 
 /**
  * Views whose id changed with the renames: an unnamed `view of x` has an id derived from `x`
@@ -391,8 +398,10 @@ export class LikeC4ModelChanges {
   protected async applyPlan(plan: ModelChangePlan, projectId: ProjectId, viewId: ViewId): Promise<ChangeView.Res> {
     const documents = this.services.shared.workspace.LangiumDocuments
     const renames = plan.renames
+    // the project of the change, and the projects importing from it that the change touches
+    const projects = [...new Set([projectId, ...[...plan.edits.keys()].map(uri => this.ownerProject(uri))])]
     const baseline = renames && {
-      references: resolvedReferences(this.services, [projectId]),
+      references: resolvedReferences(this.services, projects),
       views: await this.viewsOf(projectId),
     }
     const before = new Map<string, { text: string; errors: string[] }>()
@@ -430,7 +439,12 @@ export class LikeC4ModelChanges {
     let viewIds = new Map<ViewId, ViewId>()
     let snapshots: SnapshotChange[] = []
     if (renames && baseline) {
-      const broken = brokenReference(baseline.references, resolvedReferences(this.services, [projectId]), renames)
+      const broken = brokenReference(
+        baseline.references,
+        resolvedReferences(this.services, projects),
+        renames,
+        projectId,
+      )
       if (broken) {
         const reverted = await this.revert(before)
         if (!reverted.applied) {
@@ -442,7 +456,18 @@ export class LikeC4ModelChanges {
         throw new ModelChangeError('invalid-result', `The change would break ${broken}`)
       }
       viewIds = viewIdChanges(baseline.views, await this.viewsOf(projectId), renames)
-      snapshots = await this.renameInSnapshots(projectId, renames, viewIds)
+      for (const project of projects) {
+        snapshots.push(
+          ...project === projectId
+            ? await this.renameInSnapshots(project, renames, viewIds)
+            // in other projects the elements of this project have global ids (`@project.fqn`)
+            : await this.renameInSnapshots(
+              project,
+              { elements: globalRenames(projectId, renames.elements) },
+              new Map(),
+            ),
+        )
+      }
     }
 
     const historyId = this.recordHistory(projectId, before, plan.edits, snapshots)
@@ -455,6 +480,10 @@ export class LikeC4ModelChanges {
       ...plan.created && { created: plan.created },
       ...viewIds.has(viewId) && { viewId: viewIds.get(viewId) },
     }
+  }
+
+  protected ownerProject(uri: string): ProjectId {
+    return this.services.shared.workspace.ProjectsManager.ownerProjectId(URI.parse(uri))
   }
 
   /**
@@ -488,11 +517,11 @@ export class LikeC4ModelChanges {
       }
       await workspace.ManualLayouts.write(project, { ...renamed, id })
       if (id === view.id) {
-        changes.push({ viewId: id, before: view, after: renamed })
+        changes.push({ projectId, viewId: id, before: view, after: renamed })
       } else {
         await workspace.ManualLayouts.remove(project, view.id)
-        changes.push({ viewId: view.id, before: view, after: null })
-        changes.push({ viewId: id, before: null, after: { ...renamed, id } })
+        changes.push({ projectId, viewId: view.id, before: view, after: null })
+        changes.push({ projectId, viewId: id, before: null, after: { ...renamed, id } })
       }
     }
     return changes
@@ -635,7 +664,7 @@ export class LikeC4ModelChanges {
       }
     }
     if (entry.snapshots) {
-      await this.restoreSnapshots(project.id, entry.snapshots, direction)
+      await this.restoreSnapshots(entry.snapshots, direction)
     }
     to.push(entry)
     const first = entry.files[0]
@@ -652,10 +681,10 @@ export class LikeC4ModelChanges {
   /**
    * Writes back the snapshots of a history entry (removes those that did not exist)
    */
-  protected async restoreSnapshots(projectId: ProjectId, snapshots: SnapshotChange[], direction: 'undo' | 'redo') {
+  protected async restoreSnapshots(snapshots: SnapshotChange[], direction: 'undo' | 'redo') {
     const workspace = this.services.shared.workspace
-    const project = workspace.ProjectsManager.getProject(projectId)
     for (const snapshot of snapshots) {
+      const project = workspace.ProjectsManager.getProject(snapshot.projectId)
       const layout = direction === 'undo' ? snapshot.before : snapshot.after
       if (layout) {
         await workspace.ManualLayouts.write(project, layout)
